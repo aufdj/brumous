@@ -144,7 +144,7 @@ pub struct SystemConfig {
 impl Default for SystemConfig {
     fn default() -> Self {
         Self {
-            max: 10000,
+            max: 5000,
             rate: 10,
             mesh: ParticleMesh::cube(),
             texture: None,
