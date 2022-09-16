@@ -1,5 +1,7 @@
 use wgpu::util::DeviceExt;
 
+use crate::particle::ParticleMesh;
+
 #[repr(C)]
 #[derive(Debug, Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct LightUniform {
@@ -14,6 +16,9 @@ pub struct Light {
     pub buffer: wgpu::Buffer,
     pub bind_layout: wgpu::BindGroupLayout,
     pub bind_group: wgpu::BindGroup,
+    pub vbuf: wgpu::Buffer,
+    pub ibuf: wgpu::Buffer,
+    pub index_count: u32,
 }
 impl Light {
     pub fn new(device: &wgpu::Device) -> Self {
@@ -23,6 +28,25 @@ impl Light {
             color: [1.0, 1.0, 1.0],
             _padding1: 0,
         };
+
+        let mesh = ParticleMesh::cube();
+
+        let index_count = mesh.indices.len() as u32;
+        let vbuf = device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Vertex Buffer"),
+                contents: bytemuck::cast_slice(&mesh.vertices),
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            }
+        );
+
+        let ibuf = device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Index Buffer"),
+                contents: bytemuck::cast_slice(&mesh.indices),
+                usage: wgpu::BufferUsages::INDEX,
+            }
+        );
 
         let buffer = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
@@ -67,6 +91,9 @@ impl Light {
             buffer,
             bind_layout,
             bind_group,
+            vbuf,
+            ibuf,
+            index_count,
         }
     }
 }

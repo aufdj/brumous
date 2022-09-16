@@ -46,6 +46,7 @@ fn vs_main(vertex: VertexInput, particle: ParticleInput) -> VertexOutput {
         particle.normal_matrix_2,
     );
 
+    out.world_pos = (model_matrix * vec4<f32>(vertex.pos, 1.0)).xyz;
     out.clip_pos = camera.view_proj * model_matrix * vec4<f32>(vertex.pos, 1.0);
     out.world_normal = vertex.normal;
     out.tex_coords = vertex.tex_coords;
@@ -70,7 +71,7 @@ var s_diffuse: sampler;
 fn fs_texture(in: VertexOutput) -> @location(0) vec4<f32> {
     let obj_col: vec4<f32> = textureSample(t_diffuse, s_diffuse, in.tex_coords);
 
-    let ambient_strength = 0.1;
+    let ambient_strength = 0.4;
     let ambient_color = light.color * ambient_strength;
 
     let light_dir = normalize(light.pos - in.world_pos);
@@ -84,7 +85,7 @@ fn fs_texture(in: VertexOutput) -> @location(0) vec4<f32> {
 
 @fragment
 fn fs_color(in: VertexOutput) -> @location(0) vec4<f32> {
-    let ambient_strength = 0.1;
+    let ambient_strength = 0.4;
     let ambient_color = light.color * ambient_strength;
 
     let light_dir = normalize(light.pos - in.world_pos);

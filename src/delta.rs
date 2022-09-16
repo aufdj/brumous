@@ -2,16 +2,25 @@ use std::time::{Duration, Instant};
 
 pub struct Delta {
     pub last_frame: Instant,
+    pub frame_time: Duration,
 }
 impl Delta {
     pub fn new() -> Self {
         Self {
             last_frame: Instant::now(),
+            frame_time: Duration::ZERO,
         }
     }
-    pub fn from(&mut self, new_frame: Instant) -> Duration {
-        let delta = new_frame.duration_since(self.last_frame);
+    pub fn update(&mut self, new_frame: Instant) {
+        self.frame_time = self.last_frame.elapsed();
         self.last_frame = new_frame;
-        delta
+    }
+    pub fn frame_time(&self) -> Duration {
+        self.frame_time
+    }
+    pub fn frame_time_f32(&self) -> f32 {
+        let f = self.frame_time.as_millis() as f32 / 1000.0;
+        // println!("{f}");
+        f
     }
 }

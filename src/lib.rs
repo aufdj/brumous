@@ -52,6 +52,8 @@ struct State {
     depth_texture: DepthTexture,
     light: Light,
     delta: Delta,
+    focused: i32,
+    last_cursor: Option<imgui::MouseCursor>,
 }
 
 impl State {
@@ -228,6 +230,8 @@ impl State {
             systems,
             gui,
             delta: Delta::new(),
+            focused: 0,
+            last_cursor: None,
         }
     }
 
@@ -253,7 +257,6 @@ impl State {
         }
         
         self.camera.update();
-        self.camera.update_view_proj();
         self.gpu.queue.write_buffer(&self.camera.buffer, 0, bytemuck::cast_slice(&[self.camera.uniform]));
     }
 
@@ -294,16 +297,16 @@ impl State {
         );
 
 
-        // rpass.set_pipeline(&self.pipeline.light);
+        rpass.set_pipeline(&self.pipeline.light);
 
-        // rpass.set_bind_group(0, &self.camera.bind_group, &[]);
-        // rpass.set_bind_group(1, &self.light.bind_group, &[]);
+        rpass.set_bind_group(0, &self.camera.bind_group, &[]);
+        rpass.set_bind_group(1, &self.light.bind_group, &[]);
 
-        // rpass.set_vertex_buffer(0, self.generator.vbuf.slice(..));
+        rpass.set_vertex_buffer(0, self.light.vbuf.slice(..));
 
-        // rpass.set_index_buffer(self.generator.ibuf.slice(..), wgpu::IndexFormat::Uint16);
+        rpass.set_index_buffer(self.light.ibuf.slice(..), wgpu::IndexFormat::Uint16);
 
-        // rpass.draw_indexed(0..self.generator.mesh.indices.len() as u32, 0, 0..self.generator.particle_count());
+        rpass.draw_indexed(0..self.light.index_count, 0, 0..1);
 
         
         rpass.set_pipeline(&self.pipeline.particles);
@@ -332,6 +335,141 @@ impl State {
 
         Ok(())
     }
+    fn render_ui(&mut self, window: &Window, property: &mut Properties) {
+        self.gui.context.io_mut().update_delta_time(self.delta.frame_time());
+
+        let frame = match self.gpu.surface.get_current_texture() {
+            Ok(frame) => frame,
+            Err(e) => {
+                eprintln!("dropped frame: {:?}", e);
+                return;
+            }
+        };
+
+        self.gui.platform.prepare_frame(self.gui.context.io_mut(), &window).expect("Failed to prepare frame");
+
+        let ui = self.gui.context.frame();
+        {
+            ui.text(format!("Frametime: {:?}", self.delta.frame_time()));
+            ui.separator();
+            ui.columns(2, "", true);
+            if ui.button("New Particle System   ") {
+                self.systems.push(ParticleSystem::default(&self.gpu.device));
+            }
+            if ui.button("Delete Particle System") {
+                self.systems.remove(self.focused as usize);
+                if self.focused >= self.systems.len() as i32 {
+                    self.focused = std::cmp::max(self.systems.len() as i32 - 1, 0);
+                }
+            }
+            ui.list_box(
+                "",
+                &mut self.focused,
+                &self.systems.iter()
+                    .map(|s| s.name.as_str())
+                    .collect::<Vec<&str>>()
+                    .as_slice(),
+                self.systems.len() as i32,
+            );
+
+            ui.next_column();
+
+            if !self.systems.is_empty() {
+                let sys = &mut self.systems[self.focused as usize];
+                property.update(&sys);
+                if ui.input_text("Name", &mut property.name).enter_returns_true(true).build() {
+                    sys.name = property.name.clone();
+                }
+                if ui.input_int("Max Particles", &mut property.particle_count).enter_returns_true(true).build() {
+                    if property.particle_count > 0 {
+                        sys.resize(property.particle_count, &self.gpu.device);
+                    }
+                }
+                if ui.input_int("Particle Rate", &mut property.particle_rate).enter_returns_true(true).build() {
+                    if property.particle_rate > 0 {
+                        sys.particle_rate(property.particle_rate);
+                    }
+                }
+                if ui.input_float3("Position", &mut property.position).enter_returns_true(true).build() {
+                    sys.position(property.position);
+                }
+                if ui.input_float("Gravity", &mut property.gravity).enter_returns_true(true).build() {
+                    sys.gravity(property.gravity);
+                }
+                if ui.input_float("Life", &mut property.life).enter_returns_true(true).build() {
+                    sys.life(property.life);
+                }
+            }
+        }
+
+        let mut encoder: wgpu::CommandEncoder =
+        self.gpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
+
+        if self.last_cursor != ui.mouse_cursor() {
+            self.last_cursor = ui.mouse_cursor();
+            self.gui.platform.prepare_render(&ui, &window);
+        }
+        
+        let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+            label: None,
+            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                view: &view,
+                resolve_target: None,
+                ops: wgpu::Operations {
+                    load: wgpu::LoadOp::Clear(
+                        wgpu::Color {
+                            r: 0.0,
+                            g: 0.0,
+                            b: 0.0,
+                            a: 1.0,
+                        }
+                    ),
+                    store: true,
+                },
+            })],
+            depth_stencil_attachment: None,
+        });
+
+        self.gui.renderer.render(ui.render(), &self.gpu.queue, &self.gpu.device, &mut rpass).expect("Rendering failed");
+
+        drop(rpass);
+
+        self.gpu.queue.submit(Some(encoder.finish()));
+
+        frame.present();
+    }
+}
+
+struct Properties {
+    name: String,
+    particle_count: i32,
+    particle_rate: i32,
+    position: [f32; 3],
+    gravity: f32,
+    life: f32,
+}
+impl Properties {
+    fn update(&mut self, sys: &ParticleSystem) {
+        self.particle_count = sys.particles.len() as i32;
+        self.name = sys.name.clone();
+        self.particle_rate = sys.particle_rate as i32;
+        self.position = sys.position.into();
+        self.gravity = sys.gravity;
+        self.life = sys.life;
+    }
+}
+impl Default for Properties {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            particle_count: 0,
+            particle_rate: 0,
+            position: [0.0, 0.0, 0.0],
+            gravity: -9.81,
+            life: 1.0,
+        }
+    }
 }
  
 pub async fn run(cfg: Config) {
@@ -341,23 +479,18 @@ pub async fn run(cfg: Config) {
 
     let mut state = State::new(&window, cfg).await;
 
-    // let mut delta = Delta::new();
-
     let mut window_pos = PhysicalPosition::<f64>::new(0.0, 0.0);
-
-    let mut last_cursor = None;
-    let mut last_frame = Instant::now();
-    let mut focused = 0;
-    let mut particle_count = 0;
-    let mut name = String::new();
-    let mut particle_rate = 0;
-    let mut position = [0.0, 0.0, 0.0];
+    
+    let mut property = Properties::default();
 
     // Opens the window and starts processing events
     event_loop.run(move |event, _, control_flow| {
         *control_flow = ControlFlow::Poll;
-    
+
         match event {
+            Event::NewEvents(StartCause::Poll) => {
+                state.delta.update(Instant::now());
+            }
             Event::WindowEvent { ref event, window_id, } if window_id == window.id() => {
                 if !state.input(event) {
                     match event {
@@ -384,9 +517,8 @@ pub async fn run(cfg: Config) {
                     }
                 }
             }
-            Event::RedrawRequested(window_id) if window_id == window.id() => {
-                let delta = (state.delta.from(Instant::now()).as_millis() as f32) / 1000.0;
-                state.update(delta);
+            Event::MainEventsCleared => {
+                state.update(state.delta.frame_time_f32());
                 match state.render() {
                     Ok(_) => {},
                     Err(wgpu::SurfaceError::Lost) => {
@@ -399,113 +531,10 @@ pub async fn run(cfg: Config) {
                         eprintln!("{e:?}");
                     }
                 }
-            }
-            Event::RedrawEventsCleared => {
-                let delta_s = last_frame.elapsed();
-                let now = Instant::now();
-                state.gui.context.io_mut().update_delta_time(now - last_frame);
-                last_frame = now;
-
-                // state.gui.context.io_mut().update_delta_time(delta.from(Instant::now()));
-
-                let frame = match state.gpu.surface.get_current_texture() {
-                    Ok(frame) => frame,
-                    Err(e) => {
-                        eprintln!("dropped frame: {:?}", e);
-                        return;
-                    }
-                };
-                state.gui.platform.prepare_frame(state.gui.context.io_mut(), &window).expect("Failed to prepare frame");
-                let ui = state.gui.context.frame();
-                {
-                    ui.text(format!("Frametime: {:?}", delta_s));
-                    ui.separator();
-                    ui.columns(2, "", true);
-
-                    if ui.button("New Particle System   ") {
-                        state.systems.push(ParticleSystem::default(&state.gpu.device));
-                    }
-                    if ui.button("Delete Particle System") {
-                        state.systems.remove(focused as usize);
-                        if focused >= state.systems.len() as i32 {
-                            focused = std::cmp::max(state.systems.len() as i32 - 1, 0);
-                        }
-                    }
-
-                    ui.list_box(
-                        "",
-                        &mut focused,
-                        &state.systems.iter().map(|s| s.name.as_str()).collect::<Vec<&str>>().as_slice(),
-                        state.systems.len() as i32,
-                    );
-
-                    ui.next_column();
-
-                    if !state.systems.is_empty() {
-                        let sys = &mut state.systems[focused as usize];
-                        particle_count = sys.particles.len() as i32;
-                        name = sys.name.clone();
-                        particle_rate = sys.particle_rate as i32;
-                        position = sys.position.into();
-
-                        if ui.input_text("Name", &mut name).enter_returns_true(true).build() {
-                            sys.name = name.clone();
-                        }
-                        if ui.input_int("Max Particles", &mut particle_count).enter_returns_true(true).build() {
-                            if particle_count > 0 {
-                                sys.resize(particle_count, &state.gpu.device);
-                            }
-                        }
-                        if ui.input_int("Particle Rate", &mut particle_rate).enter_returns_true(true).build() {
-                            if particle_rate > 0 {
-                                sys.particle_rate(particle_rate);
-                            }
-                        }
-                        if ui.input_float3("Position", &mut position).enter_returns_true(true).build() {
-                            sys.position(position);
-                        }
-                    }
-                }
-
-                let mut encoder: wgpu::CommandEncoder =
-                    state.gpu.device.create_command_encoder(&wgpu::CommandEncoderDescriptor { label: None });
-
-                if last_cursor != Some(ui.mouse_cursor()) {
-                    last_cursor = Some(ui.mouse_cursor());
-                    state.gui.platform.prepare_render(&ui, &window);
-                }
-
-                let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
-                let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                    label: None,
-                    color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                        view: &view,
-                        resolve_target: None,
-                        ops: wgpu::Operations {
-                            load: wgpu::LoadOp::Clear(
-                                wgpu::Color {
-                                    r: 0.0,
-                                    g: 0.0,
-                                    b: 0.0,
-                                    a: 1.0,
-                                }
-                            ),
-                            store: true,
-                        },
-                    })],
-                    depth_stencil_attachment: None,
-                });
-
-                state.gui.renderer.render(ui.render(), &state.gpu.queue, &state.gpu.device, &mut rpass).expect("Rendering failed");
-
-                drop(rpass);
-
-                state.gpu.queue.submit(Some(encoder.finish()));
-
-                frame.present();
-            }
-            Event::MainEventsCleared => {
                 window.request_redraw();
+            }
+            Event::RedrawRequested(window_id) if window_id == window.id() => {
+                state.render_ui(&window, &mut property);
             }
             _ => {},
         }
