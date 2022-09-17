@@ -1,7 +1,7 @@
 struct CameraUniform {
     view_proj: mat4x4<f32>,
 }
-@group(1) @binding(0)
+@group(0) @binding(0)
 var<uniform> camera: CameraUniform;
 
 struct ParticleInput {
@@ -59,29 +59,8 @@ struct Light {
     pos: vec3<f32>,
     color: vec3<f32>,
 }
-@group(2) @binding(0)
+@group(1) @binding(0)
 var<uniform> light: Light;
-
-@group(0) @binding(0)
-var t_diffuse: texture_2d<f32>;
-@group(0) @binding(1)
-var s_diffuse: sampler;
-
-@fragment
-fn fs_texture(in: VertexOutput) -> @location(0) vec4<f32> {
-    let obj_col: vec4<f32> = textureSample(t_diffuse, s_diffuse, in.tex_coords);
-
-    let ambient_strength = 0.4;
-    let ambient_color = light.color * ambient_strength;
-
-    let light_dir = normalize(light.pos - in.world_pos);
-    let diffuse_strength = max(dot(in.world_normal, light_dir), 0.0);
-    let diffuse_color = light.color * diffuse_strength;
-
-    let result = (ambient_color + diffuse_color) * obj_col.xyz;
-
-    return vec4<f32>(result, obj_col.a);
-}
 
 @fragment
 fn fs_color(in: VertexOutput) -> @location(0) vec4<f32> {
@@ -96,3 +75,19 @@ fn fs_color(in: VertexOutput) -> @location(0) vec4<f32> {
 
     return vec4<f32>(result, in.color.a);
 }
+
+// @fragment
+// fn fs_texture(in: VertexOutput) -> @location(0) vec4<f32> {
+//     let obj_col: vec4<f32> = textureSample(t_diffuse, s_diffuse, in.tex_coords);
+
+//     let ambient_strength = 0.4;
+//     let ambient_color = light.color * ambient_strength;
+
+//     let light_dir = normalize(light.pos - in.world_pos);
+//     let diffuse_strength = max(dot(in.world_normal, light_dir), 0.0);
+//     let diffuse_color = light.color * diffuse_strength;
+
+//     let result = (ambient_color + diffuse_color) * obj_col.xyz;
+
+//     return vec4<f32>(result, obj_col.a);
+// }

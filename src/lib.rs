@@ -5,8 +5,6 @@ mod random;
 mod vec;
 mod light;
 mod particle;
-pub mod config;
-mod error;
 mod gpu;
 mod delta;
 mod io;
@@ -30,7 +28,6 @@ use model::{VertexLayout, Vertex};
 use texture::{Texture, DepthTexture};
 use light::Light;
 use particle::*;
-use config::Config;
 use gpu::Gpu;
 use delta::Delta;
 use io::new_input_file;
@@ -48,7 +45,6 @@ struct State {
     camera: Camera,
     systems: Vec<ParticleSystem>,
     pipeline: Pipeline,
-    diffuse_texture: Texture,
     depth_texture: DepthTexture,
     light: Light,
     delta: Delta,
@@ -58,33 +54,22 @@ struct State {
 
 impl State {
     // Creating some of the wgpu types requires async code
-    async fn new(window: &Window, cfg: Config) -> Self {
+    async fn new(window: &Window) -> Self {
         let gpu = Gpu::init(&window).await;
         let gui = Gui::new(&window, &gpu);
         let camera = Camera::new(&gpu.config, &gpu.device);
+        let systems = vec![ParticleSystem::new(&gpu.device)];
         let depth_texture = DepthTexture::new(&gpu.device, &gpu.config, "Depth Texture");
-
-        let mut systems = Vec::new();
-
-        for scfg in cfg.systems.iter() {
-            systems.push(ParticleSystem::new(&gpu.device, scfg));
-        }
-
-        let fs_name = "fs_color";
-
-        let mut diffuse_data = Vec::new();
-        for (scfg, system) in cfg.systems.iter().zip(systems.iter_mut()) {
-            if let Some(file) = &scfg.texture {
-                let mut diffuse_file = new_input_file(&file).unwrap();
-                diffuse_file.read_to_end(&mut diffuse_data).unwrap();
-                let texture = Texture::new(&gpu.device, &gpu.queue, &diffuse_data, None).unwrap();
-                system.texture(texture);
-            }
-        }
-
-        let diffuse_bytes = include_bytes!("C:/Rust/pg/image/stone.png");
-        let diffuse_texture = Texture::new(&gpu.device, &gpu.queue, diffuse_bytes, None).unwrap();
-
+        
+        // let mut diffuse_data = Vec::new();
+        // for (scfg, system) in cfg.systems.iter().zip(systems.iter_mut()) {
+        //     if let Some(file) = &scfg.texture {
+        //         let mut diffuse_file = new_input_file(&file).unwrap();
+        //         diffuse_file.read_to_end(&mut diffuse_data).unwrap();
+        //         let texture = Texture::new(&gpu.device, &gpu.queue, &diffuse_data, None).unwrap();
+        //         system.texture(texture);
+        //     }
+        // }
 
         let light = Light::new(&gpu.device);
 
@@ -116,7 +101,6 @@ impl State {
             &wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
                 bind_group_layouts: &[
-                    &diffuse_texture.bind_layout,
                     &camera.bind_layout,
                     &light.bind_layout,
                 ],
@@ -139,7 +123,7 @@ impl State {
                     },
                     fragment: Some(wgpu::FragmentState {
                         module: &shader,
-                        entry_point: &fs_name,
+                        entry_point: "fs_color",
                         targets: &[
                             Some(wgpu::ColorTargetState {
                                 format: gpu.config.format,
@@ -223,7 +207,6 @@ impl State {
         Self {
             gpu,
             pipeline,
-            diffuse_texture,
             camera,
             depth_texture,
             light,
@@ -260,10 +243,7 @@ impl State {
         self.gpu.queue.write_buffer(&self.camera.buffer, 0, bytemuck::cast_slice(&[self.camera.uniform]));
     }
 
-    fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        let output = self.gpu.surface.get_current_texture().unwrap();
-        let view = output.texture.create_view(&wgpu::TextureViewDescriptor::default());
-
+    fn render(&mut self, view: &wgpu::TextureView) -> Result<(), wgpu::SurfaceError> {
         let mut encoder = self.gpu.device.create_command_encoder(
             &wgpu::CommandEncoderDescriptor {
                 label: Some("Render Encoder"),
@@ -311,9 +291,8 @@ impl State {
         
         rpass.set_pipeline(&self.pipeline.particles);
 
-        rpass.set_bind_group(0, &self.diffuse_texture.bind_group, &[]);
-        rpass.set_bind_group(1, &self.camera.bind_group, &[]);
-        rpass.set_bind_group(2, &self.light.bind_group, &[]);
+        rpass.set_bind_group(0, &self.camera.bind_group, &[]);
+        rpass.set_bind_group(1, &self.light.bind_group, &[]);
 
         for system in self.systems.iter() {
             rpass.set_vertex_buffer(0, system.vbuf.slice(..));
@@ -331,30 +310,19 @@ impl State {
         }
 
         self.gpu.queue.submit(std::iter::once(encoder.finish()));
-        output.present();
 
         Ok(())
     }
-    fn render_ui(&mut self, window: &Window, property: &mut Properties) {
+    fn render_ui(&mut self, view: &wgpu::TextureView, window: &Window, property: &mut Properties) {
         self.gui.context.io_mut().update_delta_time(self.delta.frame_time());
-
-        let frame = match self.gpu.surface.get_current_texture() {
-            Ok(frame) => frame,
-            Err(e) => {
-                eprintln!("dropped frame: {:?}", e);
-                return;
-            }
-        };
-
         self.gui.platform.prepare_frame(self.gui.context.io_mut(), &window).expect("Failed to prepare frame");
-
         let ui = self.gui.context.frame();
         {
             ui.text(format!("Frametime: {:?}", self.delta.frame_time()));
             ui.separator();
             ui.columns(2, "", true);
-            if ui.button("New Particle System   ") {
-                self.systems.push(ParticleSystem::default(&self.gpu.device));
+            if ui.button("New Particle System") {
+                self.systems.push(ParticleSystem::new(&self.gpu.device));
             }
             if ui.button("Delete Particle System") {
                 self.systems.remove(self.focused as usize);
@@ -410,7 +378,6 @@ impl State {
             self.gui.platform.prepare_render(&ui, &window);
         }
         
-        let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
         let mut rpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: None,
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
@@ -430,9 +397,7 @@ impl State {
 
         drop(rpass);
 
-        self.gpu.queue.submit(Some(encoder.finish()));
-
-        frame.present();
+        self.gpu.queue.submit(std::iter::once(encoder.finish()));
     }
 }
 
@@ -467,12 +432,12 @@ impl Default for Properties {
     }
 }
  
-pub async fn run(cfg: Config) {
+pub async fn run() {
     env_logger::init();
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
 
-    let mut state = State::new(&window, cfg).await;
+    let mut state = State::new(&window).await;
 
     let mut window_pos = PhysicalPosition::<f64>::new(0.0, 0.0);
     
@@ -514,22 +479,49 @@ pub async fn run(cfg: Config) {
             }
             Event::MainEventsCleared => {
                 state.update(state.delta.frame_time_f32());
-                match state.render() {
-                    Ok(_) => {},
-                    Err(wgpu::SurfaceError::Lost) => {
-                        state.resize(state.gpu.size);
+                
+                {
+                    let frame = match state.gpu.surface.get_current_texture() {
+                        Ok(frame) => frame,
+                        Err(e) => {
+                            eprintln!("dropped frame: {:?}", e);
+                            return;
+                        }
+                    };
+                    let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
+                    
+                    if let Err(err) = state.render(&view) {
+                        match err {
+                            wgpu::SurfaceError::Lost => {
+                                state.resize(state.gpu.size);
+                            }
+                            wgpu::SurfaceError::OutOfMemory => {
+                                *control_flow = ControlFlow::Exit;
+                            }
+                            _ => {
+                                eprintln!("{err:?}");
+                            }
+                        }
                     }
-                    Err(wgpu::SurfaceError::OutOfMemory) => {
-                        *control_flow = ControlFlow::Exit;
-                    }
-                    Err(e) => {
-                        eprintln!("{e:?}");
-                    }
+
+                    frame.present();
                 }
+                {
+                    let frame = match state.gpu.surface.get_current_texture() {
+                        Ok(frame) => frame,
+                        Err(e) => {
+                            eprintln!("dropped frame: {:?}", e);
+                            return;
+                        }
+                    };
+                    let view = frame.texture.create_view(&wgpu::TextureViewDescriptor::default());
+
+                    state.render_ui(&view, &window, &mut property);
+
+                    frame.present();
+                }
+            
                 window.request_redraw();
-            }
-            Event::RedrawRequested(window_id) if window_id == window.id() => {
-                state.render_ui(&window, &mut property);
             }
             _ => {},
         }

@@ -7,7 +7,6 @@ use bytemuck;
 
 use crate::model::{Vertex, VertexLayout};
 use crate::random::Randf64;
-use crate::config::SystemConfig;
 use crate::texture::Texture;
 
 #[derive(Default, Copy, Clone)]
@@ -48,28 +47,29 @@ pub struct ParticleSystem {
     pub life:           f32,
 }
 impl ParticleSystem {
-    pub fn new(device: &wgpu::Device, scfg: &SystemConfig) -> Self {
-        let particles = vec![Particle::default(); scfg.max];
+    pub fn new(device: &wgpu::Device) -> Self {
+        let particles = vec![Particle::default(); 5000];
+        let mesh = ParticleMesh::cube();
 
         let vbuf = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
-                label: Some("Vertex Buffer"),
-                contents: bytemuck::cast_slice(&scfg.mesh.vertices),
+                label: Some("Particle Vertex Buffer"),
+                contents: bytemuck::cast_slice(&mesh.vertices),
                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             }
         );
 
         let ibuf = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
-                label: Some("Index Buffer"),
-                contents: bytemuck::cast_slice(&scfg.mesh.indices),
+                label: Some("Particle Vertex Buffer"),
+                contents: bytemuck::cast_slice(&mesh.indices),
                 usage: wgpu::BufferUsages::INDEX,
             }
         );
 
         let particle_buf = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
-                label: Some("Particle Buffer"),
+                label: Some("Instance Buffer"),
                 contents: bytemuck::cast_slice(&particles.to_raw()),
                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             }
@@ -77,13 +77,13 @@ impl ParticleSystem {
 
         Self {
             particles,
-            mesh: scfg.mesh.clone(),
+            mesh,
             vbuf,
             ibuf,
             particle_buf,
             last_used_particle: 0,
             particle_rate: 10,
-            position: Position { x: scfg.pos.0, y: scfg.pos.1, z: 0.0 },
+            position: Position::default(),
             rand: Randf64::new(),
             texture: None,
             name: String::from("Particle System"),
@@ -159,50 +159,6 @@ impl ParticleSystem {
     }
     pub fn particle_buf_size(&self) -> Option<NonZeroU64> {
         NonZeroU64::new(self.particles.len() as u64 * ParticleRaw::size())
-    }
-    pub fn default(device: &wgpu::Device) -> Self {
-        let particles = vec![Particle::default(); 5000];
-        let mesh = ParticleMesh::cube();
-
-        let vbuf = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Particle Vertex Buffer"),
-                contents: bytemuck::cast_slice(&mesh.vertices),
-                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            }
-        );
-
-        let ibuf = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Particle Vertex Buffer"),
-                contents: bytemuck::cast_slice(&mesh.indices),
-                usage: wgpu::BufferUsages::INDEX,
-            }
-        );
-
-        let particle_buf = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Instance Buffer"),
-                contents: bytemuck::cast_slice(&particles.to_raw()),
-                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            }
-        );
-
-        Self {
-            particles,
-            mesh,
-            vbuf,
-            ibuf,
-            particle_buf,
-            last_used_particle: 0,
-            particle_rate: 10,
-            position: Position::default(),
-            rand: Randf64::new(),
-            texture: None,
-            name: String::from("Particle System"),
-            gravity: -9.81,
-            life: 1.0,
-        }
     }
 }
 
