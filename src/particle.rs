@@ -1,13 +1,18 @@
 use std::mem;
 use std::num::NonZeroU64;
+use std::path::Path;
+use std::io::Read;
+use std::ops::Range;
 
 use cgmath::{Vector3, Vector4, Matrix3, Matrix4, Quaternion};
 use wgpu::util::DeviceExt;
 use bytemuck;
 
 use crate::model::{Vertex, VertexLayout};
-use crate::random::Randf64;
+use crate::random::Randf32;
 use crate::texture::Texture;
+use crate::gpu::Gpu;
+use crate::io::new_input_file;
 
 #[derive(Default, Copy, Clone)]
 pub struct Position {
@@ -30,6 +35,17 @@ impl From<Position> for [f32; 3] {
     }
 }
 
+enum Area {
+    Circle(f32),
+    Square((f32, f32)),
+}
+impl Default for Area {
+    fn default() -> Self {
+        Self::Square((0.5, 0.5))
+    }
+}
+
+
 pub struct ParticleSystem {
     pub particles:      Vec<Particle>,
     pub mesh:           ParticleMesh,
@@ -39,19 +55,17 @@ pub struct ParticleSystem {
     last_used_particle: usize,
     pub particle_rate:  usize,
     pub position:       Position,
-    rand:               Randf64,
     texture:            Option<Texture>,
-    // pipeline: wgpu::RenderPipeline,
     pub name:           String,
     pub gravity:        f32,
-    pub life:           f32,
+    settings:           ParticleSettings,
 }
 impl ParticleSystem {
-    pub fn new(device: &wgpu::Device) -> Self {
+    pub fn new(gpu: &Gpu) -> Self {
         let particles = vec![Particle::default(); 5000];
         let mesh = ParticleMesh::cube();
 
-        let vbuf = device.create_buffer_init(
+        let vbuf = gpu.device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: Some("Particle Vertex Buffer"),
                 contents: bytemuck::cast_slice(&mesh.vertices),
@@ -59,7 +73,7 @@ impl ParticleSystem {
             }
         );
 
-        let ibuf = device.create_buffer_init(
+        let ibuf = gpu.device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: Some("Particle Vertex Buffer"),
                 contents: bytemuck::cast_slice(&mesh.indices),
@@ -67,7 +81,7 @@ impl ParticleSystem {
             }
         );
 
-        let particle_buf = device.create_buffer_init(
+        let particle_buf = gpu.device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: Some("Instance Buffer"),
                 contents: bytemuck::cast_slice(&particles.to_raw()),
@@ -84,14 +98,13 @@ impl ParticleSystem {
             last_used_particle: 0,
             particle_rate: 10,
             position: Position::default(),
-            rand: Randf64::new(),
             texture: None,
             name: String::from("Particle System"),
             gravity: -9.81,
-            life: 1.0,
+            settings: ParticleSettings::default(),
         }
     }
-    pub fn find_unused_particle(&mut self) -> usize {
+    fn find_unused_particle(&mut self) -> usize {
         for i in self.last_used_particle..self.particles.len() {
             if self.particles[i].life < 0.0 {
                 self.last_used_particle = i;
@@ -111,7 +124,8 @@ impl ParticleSystem {
     pub fn update_particles(&mut self, delta: f32, queue: &wgpu::Queue) {
         for _ in 0..self.particle_rate {
             let particle = self.find_unused_particle();
-            self.particles[particle].respawn(&mut self.rand, self.position, self.life);
+            // self.particles[particle].respawn(&mut self.rand, self.position);
+            self.particles[particle] = Particle::from(&mut self.settings);
         }
 
         for (index, particle) in self.particles.iter_mut().enumerate() {
@@ -119,8 +133,8 @@ impl ParticleSystem {
             if particle.life > 0.0 {
                 particle.update(delta, self.gravity);
                 queue.write_buffer(
-                    &self.particle_buf, 
-                    index as u64 * ParticleRaw::size(), 
+                    &self.particle_buf,
+                    index as u64 * ParticleRaw::size(),
                     bytemuck::cast_slice(&[particle.to_raw()])
                 );
             }
@@ -142,26 +156,61 @@ impl ParticleSystem {
     pub fn particle_count(&self) -> u32 {
         self.particles.len() as u32
     }
-    pub fn position(&mut self, pos: [f32; 3]) {
-        self.position = Position::from(pos);
-    }
-    pub fn texture(&mut self, texture: Texture) {
-        self.texture = Some(texture);
-    }
-    pub fn particle_rate(&mut self, particle_rate: i32) {
-        self.particle_rate = particle_rate as usize;
-    }
-    pub fn gravity(&mut self, gravity: f32) {
-        self.gravity = gravity;
-    }
-    pub fn life(&mut self, life: f32) {
-        self.life = life;
-    }
     pub fn particle_buf_size(&self) -> Option<NonZeroU64> {
         NonZeroU64::new(self.particles.len() as u64 * ParticleRaw::size())
     }
+    pub fn set_position(&mut self, pos: [f32; 3]) {
+        self.position = Position::from(pos);
+    }
+    pub fn set_texture(&mut self, gpu: &Gpu, texture_path: &Path) {
+        let mut diffuse_data = Vec::new();
+        new_input_file(&texture_path).unwrap().read_to_end(&mut diffuse_data).unwrap();
+        let texture = Texture::new(&gpu.device, &gpu.queue, &diffuse_data, None).unwrap();
+        self.texture = Some(texture);
+    }
+    pub fn set_particle_rate(&mut self, particle_rate: i32) {
+        self.particle_rate = particle_rate as usize;
+    }
+    pub fn set_gravity(&mut self, gravity: f32) {
+        self.gravity = gravity;
+    }
+    pub fn set_name(&mut self, name: String) {
+        self.name = name;
+    }
+    pub fn set_weight(&mut self, weight: Range<f32>) {
+        self.settings.weight = weight;
+    }
+    pub fn set_initial_velocity(&mut self, init_vel: [Range<f32>; 3]) {
+        self.settings.init_vel = init_vel;
+    }
 }
 
+struct ParticleSettings {
+    pos: Position,
+    spread: [Range<f32>; 3],
+    area: Area,
+    life: Range<f32>,
+    init_vel: [Range<f32>; 3],
+    color: [Range<f32>; 4],
+    weight: Range<f32>,
+    scale: Range<f32>,
+    rand: Randf32,
+}
+impl Default for ParticleSettings {
+    fn default() -> Self {
+        Self {
+            pos: Position::from([0.0, 0.0, 0.0]),
+            spread: [-0.2..0.2, -0.2..0.2, -0.2..0.2],
+            area: Area::default(),
+            life: 1.0..10.0,
+            init_vel: [-0.2..0.2, 0.5..1.0, -0.2..0.2],
+            color: [0.0..1.0, 0.0..1.0, 0.0..1.0, 0.0..1.0],
+            weight: 0.1..1.0,
+            scale: 0.005..0.010,
+            rand: Randf32::new(),
+        }
+    }
+}
 
 #[derive(Clone)]
 pub struct Particle {
@@ -175,24 +224,8 @@ pub struct Particle {
 }
 impl Particle {
     pub fn update(&mut self, delta: f32, gravity: f32) {
-        self.vel += Vector3::new(0.0, gravity, 0.0) * delta * 0.5;
+        self.vel += Vector3::new(0.0, gravity * self.weight, 0.0) * delta * 0.5;
         self.pos += self.vel * delta;
-    }
-    pub fn respawn(&mut self, rand: &mut Randf64, pos: Position, life: f32) {
-        let p1 = rand.in_range(-0.002, 0.002) as f32;
-        let p2 = rand.in_range(-0.002, 0.002) as f32;
-        let p3 = rand.in_range(-0.002, 0.002) as f32;
-        self.pos = Vector3::new(p1 + pos.x, p2 + pos.y, p3 + pos.z);
-
-        let v1 = rand.in_range(-0.2, 0.2) as f32;
-        let v2 = rand.in_range(-0.2, 0.2) as f32;
-        self.vel = Vector3::new(v1, 1.0, v2);
-
-        let r = rand.in_range(0.0, 1.0) as f32;
-        let g = rand.in_range(0.0, 1.0) as f32;
-        let b = rand.in_range(0.0, 1.0) as f32;
-        self.color = Vector4::new(1.0, r, g, b);
-        self.life = life;
     }
     pub fn to_raw(&self) -> ParticleRaw {
         ParticleRaw {
@@ -212,10 +245,43 @@ impl Default for Particle {
             pos: Vector3::new(0.0, -100.0, 0.0), 
             rot: Quaternion::new(0.0, 0.0, 0.0, 0.0), 
             vel: Vector3::new(0.0, 0.0, 0.0), 
-            scale: 0.001,
+            scale: 0.008,
             life: 0.0, 
             weight: 1.0,
             color: Vector4::new(0.0, 0.0, 0.0, 0.0),
+        }
+    }
+}
+impl From<&mut ParticleSettings> for Particle {
+    fn from(settings: &mut ParticleSettings) -> Particle {
+        let s1 = settings.rand.in_range(&settings.spread[0]);
+        let s2 = settings.rand.in_range(&settings.spread[1]);
+        let s3 = settings.rand.in_range(&settings.spread[2]);
+        let pos = Vector3::new(s1 + settings.pos.x, s2 + settings.pos.y, s3 + settings.pos.z);
+
+        let v1 = settings.rand.in_range(&settings.init_vel[0]);
+        let v2 = settings.rand.in_range(&settings.init_vel[1]);
+        let v3 = settings.rand.in_range(&settings.init_vel[2]);
+        let vel = Vector3::new(v1, v2, v3);
+
+        let r = settings.rand.in_range(&settings.color[0]);
+        let g = settings.rand.in_range(&settings.color[1]);
+        let b = settings.rand.in_range(&settings.color[2]);
+        let a = settings.rand.in_range(&settings.color[3]);
+        let color = Vector4::new(a, r, g, b);
+
+        let life = settings.rand.in_range(&settings.life);
+        let weight = settings.rand.in_range(&settings.weight);
+        let scale = settings.rand.in_range(&settings.scale);
+
+        Particle {
+            pos,
+            vel,
+            color,
+            life,
+            scale,
+            rot: Quaternion::new(0.0, 0.0, 0.0, 0.0),
+            weight,
         }
     }
 }
@@ -345,5 +411,19 @@ impl ParticleMesh {
         Self {
             vertices, indices,
         }
+    }
+}
+
+pub trait DrawParticleSystem<'a, 'b> where 'a: 'b {
+    fn draw_particle_system(&'b mut self, sys: &'a ParticleSystem);
+}
+impl<'a, 'b> DrawParticleSystem<'a, 'b> for wgpu::RenderPass<'a> where 'a: 'b {
+    fn draw_particle_system(&'b mut self, sys: &'a ParticleSystem) {
+        self.set_vertex_buffer(0, sys.vbuf.slice(..));
+        self.set_vertex_buffer(1, sys.particle_buf.slice(..));
+
+        self.set_index_buffer(sys.ibuf.slice(..), wgpu::IndexFormat::Uint16);
+        
+        self.draw_indexed(0..sys.mesh.indices.len() as u32, 0, 0..sys.particle_count());
     }
 }

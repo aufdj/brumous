@@ -19,8 +19,6 @@ impl Delta {
         self.frame_time
     }
     pub fn frame_time_f32(&self) -> f32 {
-        let f = self.frame_time.as_millis() as f32 / 1000.0;
-        // println!("{f}");
-        f
+        self.frame_time.as_millis() as f32 / 1000.0
     }
 }
