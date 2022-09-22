@@ -55,25 +55,9 @@ fn vs_main(vertex: VertexInput, particle: ParticleInput) -> VertexOutput {
     return out;
 }
 
-struct Light {
-    pos: vec3<f32>,
-    color: vec3<f32>,
-}
-@group(1) @binding(0)
-var<uniform> light: Light;
-
 @fragment
 fn fs_color(in: VertexOutput) -> @location(0) vec4<f32> {
-    let ambient_strength = 0.4;
-    let ambient_color = light.color * ambient_strength;
-
-    let light_dir = normalize(light.pos - in.world_pos);
-    let diffuse_strength = max(dot(in.world_normal, light_dir), 0.0);
-    let diffuse_color = light.color * diffuse_strength;
-
-    let result = (ambient_color + diffuse_color) * in.color.xyz;
-
-    return vec4<f32>(result, in.color.a);
+    return in.color;
 }
 
 // @fragment

@@ -35,13 +35,12 @@ impl From<Position> for [f32; 3] {
     }
 }
 
-enum Area {
-    Circle(f32),
-    Square((f32, f32)),
+pub enum Area {
+    Cube([Range<f32>; 3]),
 }
 impl Default for Area {
     fn default() -> Self {
-        Self::Square((0.5, 0.5))
+        Self::Cube([-0.2..0.2, 0.0..0.0, -0.2..0.2])
     }
 }
 
@@ -96,7 +95,7 @@ impl ParticleSystem {
             ibuf,
             particle_buf,
             last_used_particle: 0,
-            particle_rate: 10,
+            particle_rate: 1,
             position: Position::default(),
             texture: None,
             name: String::from("Particle System"),
@@ -124,7 +123,6 @@ impl ParticleSystem {
     pub fn update_particles(&mut self, delta: f32, queue: &wgpu::Queue) {
         for _ in 0..self.particle_rate {
             let particle = self.find_unused_particle();
-            // self.particles[particle].respawn(&mut self.rand, self.position);
             self.particles[particle] = Particle::from(&mut self.settings);
         }
 
@@ -168,8 +166,8 @@ impl ParticleSystem {
         let texture = Texture::new(&gpu.device, &gpu.queue, &diffuse_data, None).unwrap();
         self.texture = Some(texture);
     }
-    pub fn set_particle_rate(&mut self, particle_rate: i32) {
-        self.particle_rate = particle_rate as usize;
+    pub fn set_particle_rate(&mut self, particle_rate: usize) {
+        self.particle_rate = particle_rate;
     }
     pub fn set_gravity(&mut self, gravity: f32) {
         self.gravity = gravity;
@@ -183,31 +181,32 @@ impl ParticleSystem {
     pub fn set_initial_velocity(&mut self, init_vel: [Range<f32>; 3]) {
         self.settings.init_vel = init_vel;
     }
+    pub fn set_area(&mut self, area: Area) {
+        self.settings.area = area;
+    }
 }
 
 struct ParticleSettings {
-    pos: Position,
-    spread: [Range<f32>; 3],
-    area: Area,
-    life: Range<f32>,
+    pos:      Position,
+    area:     Area,
     init_vel: [Range<f32>; 3],
-    color: [Range<f32>; 4],
-    weight: Range<f32>,
-    scale: Range<f32>,
-    rand: Randf32,
+    color:    [Range<f32>; 4],
+    life:     Range<f32>,
+    weight:   Range<f32>,
+    scale:    Range<f32>,
+    rand:     Randf32,
 }
 impl Default for ParticleSettings {
     fn default() -> Self {
         Self {
-            pos: Position::from([0.0, 0.0, 0.0]),
-            spread: [-0.2..0.2, -0.2..0.2, -0.2..0.2],
-            area: Area::default(),
-            life: 1.0..10.0,
+            pos:      Position::from([0.0, 0.0, 0.0]),
+            area:     Area::default(),
+            life:     1.0..10.0,
             init_vel: [-0.2..0.2, 0.5..1.0, -0.2..0.2],
-            color: [0.0..1.0, 0.0..1.0, 0.0..1.0, 0.0..1.0],
-            weight: 0.1..1.0,
-            scale: 0.005..0.010,
-            rand: Randf32::new(),
+            color:    [0.0..1.0, 0.0..1.0, 0.0..1.0, 0.0..1.0],
+            weight:   0.1..1.0,
+            scale:    0.005..0.010,
+            rand:     Randf32::new(),
         }
     }
 }
@@ -254,10 +253,14 @@ impl Default for Particle {
 }
 impl From<&mut ParticleSettings> for Particle {
     fn from(settings: &mut ParticleSettings) -> Particle {
-        let s1 = settings.rand.in_range(&settings.spread[0]);
-        let s2 = settings.rand.in_range(&settings.spread[1]);
-        let s3 = settings.rand.in_range(&settings.spread[2]);
-        let pos = Vector3::new(s1 + settings.pos.x, s2 + settings.pos.y, s3 + settings.pos.z);
+        let pos = match &settings.area {
+            Area::Cube(dim) => {
+                let s1 = settings.rand.in_range(&dim[0]);
+                let s2 = settings.rand.in_range(&dim[1]);
+                let s3 = settings.rand.in_range(&dim[2]);
+                Vector3::new(s1 + settings.pos.x, s2 + settings.pos.y, s3 + settings.pos.z)
+            }
+        };
 
         let v1 = settings.rand.in_range(&settings.init_vel[0]);
         let v2 = settings.rand.in_range(&settings.init_vel[1]);

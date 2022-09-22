@@ -1,9 +1,8 @@
 mod texture;
 mod camera;
 mod model;
-pub mod random;
+mod random;
 mod vec;
-mod light;
 pub mod particle;
 mod gpu;
 mod delta;
@@ -25,14 +24,12 @@ use cgmath::{Vector3, Quaternion};
 use camera::*;
 use model::{VertexLayout, Vertex};
 use texture::{Texture, DepthTexture};
-use light::Light;
 use particle::*;
 use gpu::Gpu;
 use delta::Delta;
 use io::new_input_file;
 
 struct Pipeline {
-    // light: wgpu::RenderPipeline,
     particles: wgpu::RenderPipeline,
 }
 
@@ -40,12 +37,10 @@ struct Pipeline {
 struct State {
     gpu: Gpu,
     camera: Camera,
-    systems: Vec<ParticleSystem>,
+    system: ParticleSystem,
     pipeline: Pipeline,
     depth_texture: DepthTexture,
-    light: Light,
     delta: Delta,
-    focused: i32,
 }
 
 impl State {
@@ -53,9 +48,8 @@ impl State {
     async fn new(window: &Window) -> Self {
         let gpu = Gpu::init(&window).await;
         let camera = Camera::new(&gpu.config, &gpu.device);
-        let systems = vec![ParticleSystem::new(&gpu)];
+        let system = ParticleSystem::new(&gpu);
         let depth_texture = DepthTexture::new(&gpu.device, &gpu.config, "Depth Texture");
-        let light = Light::new(&gpu.device);
 
         let shader = gpu.device.create_shader_module(
             wgpu::ShaderModuleDescriptor {
@@ -68,7 +62,6 @@ impl State {
                 label: Some("Render Pipeline Layout"),
                 bind_group_layouts: &[
                     &camera.bind_layout,
-                    &light.bind_layout,
                 ],
                 push_constant_ranges: &[],
             }
@@ -129,10 +122,8 @@ impl State {
             pipeline,
             camera,
             depth_texture,
-            light,
-            systems,
+            system,
             delta: Delta::new(),
-            focused: 0,
         }
     }
 
@@ -148,14 +139,7 @@ impl State {
     }
 
     fn update(&mut self, delta: f32) {
-        let old_pos: Vector3<_> = self.light.uniform.position.into();
-        let angle = Quaternion::from_axis_angle((0.0, 1.0, 0.0).into(), cgmath::Deg(1.0));
-        self.light.uniform.position = (angle * old_pos).into();
-        self.gpu.queue.write_buffer(&self.light.buffer, 0, bytemuck::cast_slice(&[self.light.uniform]));
-
-        for system in self.systems.iter_mut() {
-            system.update_particles(delta, &self.gpu.queue);
-        }
+        self.system.update_particles(delta, &self.gpu.queue);
         
         self.camera.update();
         self.gpu.queue.write_buffer(&self.camera.buffer, 0, bytemuck::cast_slice(&[self.camera.uniform]));
@@ -195,17 +179,12 @@ impl State {
         );
 
         rpass.set_pipeline(&self.pipeline.particles);
-
         rpass.set_bind_group(0, &self.camera.bind_group, &[]);
-        rpass.set_bind_group(1, &self.light.bind_group, &[]);
-
-        rpass.draw_particle_system(&self.systems[0]);
+        rpass.draw_particle_system(&self.system);
         
         drop(rpass);
 
-        for system in self.systems.iter() {
-            encoder.clear_buffer(&system.particle_buf, 0, system.particle_buf_size());
-        }
+        encoder.clear_buffer(&self.system.particle_buf, 0, self.system.particle_buf_size());
 
         self.gpu.queue.submit(std::iter::once(encoder.finish()));
 
