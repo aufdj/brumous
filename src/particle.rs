@@ -4,7 +4,7 @@ use std::path::Path;
 use std::io::Read;
 use std::ops::Range;
 
-use cgmath::{Vector3, Vector4, Matrix3, Matrix4, Quaternion, SquareMatrix};
+use cgmath::{Vector3, Vector4, Matrix3, Matrix4, Quaternion};
 use wgpu::util::DeviceExt;
 use bytemuck;
 

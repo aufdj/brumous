@@ -9,8 +9,7 @@ mod delta;
 mod bufio;
 
 use std::time::Instant;
-use std::io::{self, Read, Write};
-use std::path::Path;
+use std::io::{self, Write};
 
 use winit::{
     event::*,
@@ -18,16 +17,12 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 use bytemuck;
-use cgmath::prelude::*;
-use cgmath::{Vector3, Quaternion};
 
 use camera::*;
-use model::{VertexLayout, Vertex};
-use texture::{Texture, DepthTexture};
+use texture::DepthTexture;
 use particle::*;
 use gpu::Gpu;
 use delta::Delta;
-use bufio::new_input_file;
 
 
 struct State {
@@ -132,7 +127,7 @@ pub async fn run() {
         match event {
             Event::NewEvents(StartCause::Poll) => {
                 state.delta.update(Instant::now());
-                stdout.write_fmt(format_args!("\rframetime: {:?}", state.delta.frame_time()));
+                stdout.write_fmt(format_args!("\rframetime: {:?}", state.delta.frame_time())).unwrap();
             }
             Event::WindowEvent { ref event, window_id, } if window_id == window.id() => {
                 if !state.input(event) {

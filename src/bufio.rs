@@ -1,7 +1,7 @@
 use std::{
     fs::File,
     path::Path,
-    io::{self, BufReader, ErrorKind},
+    io::{self, BufReader},
 };
 
 /// Takes a file path and returns an input file wrapped in a BufReader.
