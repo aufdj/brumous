@@ -4,7 +4,7 @@ use std::path::Path;
 use std::io::Read;
 use std::ops::Range;
 
-use cgmath::{Vector3, Vector4, Matrix3, Matrix4, Quaternion};
+use cgmath::{Vector3, Vector4, Matrix3, Matrix4, Quaternion, SquareMatrix};
 use wgpu::util::DeviceExt;
 use bytemuck;
 
@@ -44,6 +44,13 @@ impl Default for Area {
     }
 }
 
+const IDENTITY: [[f32; 4]; 4] = [
+    [1.0, 0.0, 0.0, 0.0],
+    [0.0, 1.0, 0.0, 0.0],
+    [0.0, 0.0, 1.0, 0.0],
+    [0.0, 0.0, 0.0, 0.0]
+];
+
 
 pub struct ParticleSystem {
     pub particles:      Vec<Particle>,
@@ -52,19 +59,22 @@ pub struct ParticleSystem {
     pub ibuf:           wgpu::Buffer,
     pub particle_buf:   wgpu::Buffer,
     last_used_particle: usize,
-    pub particle_rate:  usize,
-    pub position:       Position,
+    particle_rate:      usize,
+    position:           Position,
     texture:            Option<Texture>,
-    pub name:           String,
-    pub gravity:        f32,
+    name:               String,
+    gravity:            f32,
     settings:           ParticleSettings,
+    pipeline:           wgpu::RenderPipeline,
+    cam_buffer:         wgpu::Buffer,
+    cam_bind_group:     wgpu::BindGroup,
 }
 impl ParticleSystem {
-    pub fn new(gpu: &Gpu) -> Self {
+    pub fn new(device: &wgpu::Device, config: &wgpu::SurfaceConfiguration) -> Self {
         let particles = vec![Particle::default(); 5000];
         let mesh = ParticleMesh::cube();
 
-        let vbuf = gpu.device.create_buffer_init(
+        let vbuf = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: Some("Particle Vertex Buffer"),
                 contents: bytemuck::cast_slice(&mesh.vertices),
@@ -72,7 +82,7 @@ impl ParticleSystem {
             }
         );
 
-        let ibuf = gpu.device.create_buffer_init(
+        let ibuf = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: Some("Particle Vertex Buffer"),
                 contents: bytemuck::cast_slice(&mesh.indices),
@@ -80,11 +90,113 @@ impl ParticleSystem {
             }
         );
 
-        let particle_buf = gpu.device.create_buffer_init(
+        let particle_buf = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: Some("Instance Buffer"),
                 contents: bytemuck::cast_slice(&particles.to_raw()),
                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            }
+        );
+
+        let cam_buffer = device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Camera Buffer"),
+                contents: bytemuck::cast_slice(&IDENTITY),
+                usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            }
+        );
+        let cam_bind_layout = device.create_bind_group_layout(
+            &wgpu::BindGroupLayoutDescriptor {
+                label: Some("Camera Bind Group Layout"),
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Uniform,
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    }
+                ]
+            }
+        );
+        let cam_bind_group = device.create_bind_group(
+            &wgpu::BindGroupDescriptor {
+                label: Some("Camera Bind Group"),
+                layout: &cam_bind_layout,
+                entries: &[
+                    wgpu::BindGroupEntry {
+                        binding: 0,
+                        resource: cam_buffer.as_entire_binding(),
+                    }
+                ]
+            }
+        );
+
+        let shader = device.create_shader_module(
+            wgpu::ShaderModuleDescriptor {
+                label: Some("Shader"),
+                source: wgpu::ShaderSource::Wgsl(include_str!("particle.wgsl").into()),
+            }
+        );
+
+        let pipeline_layout = device.create_pipeline_layout(
+            &wgpu::PipelineLayoutDescriptor {
+                label: Some("Render Pipeline Layout"),
+                bind_group_layouts: &[
+                    &cam_bind_layout,
+                ],
+                push_constant_ranges: &[],
+            }
+        );
+
+        let pipeline = device.create_render_pipeline(
+            &wgpu::RenderPipelineDescriptor {
+                label: Some("Render Pipeline"),
+                layout: Some(&pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &shader,
+                    entry_point: "vs_main",
+                    buffers: &[
+                        Vertex::layout(),
+                        ParticleRaw::layout(),
+                    ],
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &shader,
+                    entry_point: "fs_color",
+                    targets: &[
+                        Some(wgpu::ColorTargetState {
+                            format: config.format,
+                            blend: Some(wgpu::BlendState::REPLACE),
+                            write_mask: wgpu::ColorWrites::ALL,
+                        })
+                    ],
+                }),
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleList,
+                    strip_index_format: None,
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: Some(wgpu::Face::Back),
+                    polygon_mode: wgpu::PolygonMode::Fill,
+                    unclipped_depth: false,
+                    conservative: false,
+                },
+                depth_stencil: Some(wgpu::DepthStencilState {
+                    format: Texture::DEPTH_FORMAT,
+                    depth_write_enabled: true,
+                    depth_compare: wgpu::CompareFunction::Less,
+                    stencil: wgpu::StencilState::default(),
+                    bias: wgpu::DepthBiasState::default(),
+                }),
+                multisample: wgpu::MultisampleState {
+                    count: 1,
+                    mask: !0,
+                    alpha_to_coverage_enabled: false,
+                },
+                multiview: None,
             }
         );
 
@@ -101,6 +213,9 @@ impl ParticleSystem {
             name: String::from("Particle System"),
             gravity: -9.81,
             settings: ParticleSettings::default(),
+            pipeline,
+            cam_buffer,
+            cam_bind_group,
         }
     }
     fn find_unused_particle(&mut self) -> usize {
@@ -183,6 +298,12 @@ impl ParticleSystem {
     }
     pub fn set_area(&mut self, area: Area) {
         self.settings.area = area;
+    }
+    pub fn set_view_proj(&mut self, view_proj: [[f32; 4]; 4], queue: &wgpu::Queue) {
+        queue.write_buffer(&self.cam_buffer, 0, bytemuck::cast_slice(&[view_proj]));
+    }
+    pub fn clear(&mut self, encoder: &mut wgpu::CommandEncoder) {
+        encoder.clear_buffer(&self.particle_buf, 0, self.particle_buf_size());
     }
 }
 
@@ -422,6 +543,8 @@ pub trait DrawParticleSystem<'a, 'b> where 'a: 'b {
 }
 impl<'a, 'b> DrawParticleSystem<'a, 'b> for wgpu::RenderPass<'a> where 'a: 'b {
     fn draw_particle_system(&'b mut self, sys: &'a ParticleSystem) {
+        self.set_pipeline(&sys.pipeline);
+        self.set_bind_group(0, &sys.cam_bind_group, &[]);
         self.set_vertex_buffer(0, sys.vbuf.slice(..));
         self.set_vertex_buffer(1, sys.particle_buf.slice(..));
 
