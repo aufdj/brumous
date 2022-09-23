@@ -6,10 +6,10 @@ mod vec;
 pub mod particle;
 mod gpu;
 mod delta;
-mod io;
+mod bufio;
 
 use std::time::Instant;
-use std::io::Read;
+use std::io::{self, Read, Write};
 use std::path::Path;
 
 use winit::{
@@ -27,7 +27,7 @@ use texture::{Texture, DepthTexture};
 use particle::*;
 use gpu::Gpu;
 use delta::Delta;
-use io::new_input_file;
+use bufio::new_input_file;
 
 
 struct State {
@@ -66,11 +66,10 @@ impl State {
     }
 
     fn update(&mut self, delta: f32) {
-        self.system.update_particles(delta, &self.gpu.queue);
-        
         self.camera.update();
         self.gpu.queue.write_buffer(&self.camera.buffer, 0, bytemuck::cast_slice(&[self.camera.uniform]));
 
+        self.system.update_particles(delta, &self.gpu.queue);
         self.system.set_view_proj(self.camera.uniform.view_proj, &self.gpu.queue);
     }
 
@@ -110,7 +109,7 @@ impl State {
         rpass.draw_particle_system(&self.system);
         
         drop(rpass);
-        
+
         self.system.clear(&mut encoder);
 
         self.gpu.queue.submit(std::iter::once(encoder.finish()));
@@ -124,6 +123,7 @@ pub async fn run() {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
     let mut state = State::new(&window).await;
+    let mut stdout = io::stdout().lock();
     
     // Opens the window and starts processing events
     event_loop.run(move |event, _, control_flow| {
@@ -132,6 +132,7 @@ pub async fn run() {
         match event {
             Event::NewEvents(StartCause::Poll) => {
                 state.delta.update(Instant::now());
+                stdout.write_fmt(format_args!("\rframetime: {:?}", state.delta.frame_time()));
             }
             Event::WindowEvent { ref event, window_id, } if window_id == window.id() => {
                 if !state.input(event) {

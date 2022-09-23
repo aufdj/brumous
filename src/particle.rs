@@ -12,7 +12,7 @@ use crate::model::{Vertex, VertexLayout};
 use crate::random::Randf32;
 use crate::texture::Texture;
 use crate::gpu::Gpu;
-use crate::io::new_input_file;
+use crate::bufio::new_input_file;
 
 #[derive(Default, Copy, Clone)]
 pub struct Position {
