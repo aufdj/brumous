@@ -23,6 +23,7 @@ use texture::DepthTexture;
 use particle::*;
 use gpu::Gpu;
 use delta::Delta;
+use model::{Vertex, VertexLayout};
 
 
 struct State {
@@ -37,8 +38,73 @@ impl State {
     async fn new(window: &Window) -> Self {
         let gpu = Gpu::init(&window).await;
         let camera = Camera::new(&gpu.config, &gpu.device);
-        let system = ParticleSystem::new(&gpu.device, &gpu.config);
         let depth_texture = DepthTexture::new(&gpu.device, &gpu.config, "Depth Texture");
+        
+        let shader = gpu.device.create_shader_module(
+            wgpu::ShaderModuleDescriptor {
+                label: Some("Shader"),
+                source: wgpu::ShaderSource::Wgsl(include_str!("particle.wgsl").into()),
+            }
+        );
+
+        let pipeline_layout = gpu.device.create_pipeline_layout(
+            &wgpu::PipelineLayoutDescriptor {
+                label: Some("Render Pipeline Layout"),
+                bind_group_layouts: &[&camera.bind_layout],
+                push_constant_ranges: &[],
+            }
+        );
+
+        let pipeline = gpu.device.create_render_pipeline(
+            &wgpu::RenderPipelineDescriptor {
+                label: Some("Render Pipeline"),
+                layout: Some(&pipeline_layout),
+                vertex: wgpu::VertexState {
+                    module: &shader,
+                    entry_point: "vs_main",
+                    buffers: &[
+                        Vertex::layout(),
+                        ParticleRaw::layout(),
+                    ],
+                },
+                fragment: Some(wgpu::FragmentState {
+                    module: &shader,
+                    entry_point: "fs_color",
+                    targets: &[
+                        Some(wgpu::ColorTargetState {
+                            format: gpu.config.format,
+                            blend: Some(wgpu::BlendState::REPLACE),
+                            write_mask: wgpu::ColorWrites::ALL,
+                        })
+                    ],
+                }),
+                primitive: wgpu::PrimitiveState {
+                    topology: wgpu::PrimitiveTopology::TriangleList,
+                    strip_index_format: None,
+                    front_face: wgpu::FrontFace::Ccw,
+                    cull_mode: Some(wgpu::Face::Back),
+                    polygon_mode: wgpu::PolygonMode::Fill,
+                    unclipped_depth: false,
+                    conservative: false,
+                },
+                depth_stencil: Some(wgpu::DepthStencilState {
+                    format: texture::Texture::DEPTH_FORMAT,
+                    depth_write_enabled: true,
+                    depth_compare: wgpu::CompareFunction::Less,
+                    stencil: wgpu::StencilState::default(),
+                    bias: wgpu::DepthBiasState::default(),
+                }),
+                multisample: wgpu::MultisampleState {
+                    count: 1,
+                    mask: !0,
+                    alpha_to_coverage_enabled: false,
+                },
+                multiview: None,
+            }
+        );
+
+        let system_desc = ParticleSystemDescriptor::default();
+        let system = gpu.device.create_particle_system(system_desc, pipeline);
 
         Self {
             gpu,
@@ -64,8 +130,7 @@ impl State {
         self.camera.update();
         self.gpu.queue.write_buffer(&self.camera.buffer, 0, bytemuck::cast_slice(&[self.camera.uniform]));
 
-        self.system.update_particles(delta, &self.gpu.queue);
-        self.system.set_view_proj(self.camera.uniform.view_proj, &self.gpu.queue);
+        self.system.update(delta, &self.gpu.queue);
     }
 
     fn render(&mut self, view: &wgpu::TextureView) -> Result<(), wgpu::SurfaceError> {
@@ -101,7 +166,7 @@ impl State {
             }
         );
 
-        rpass.draw_particle_system(&self.system);
+        rpass.draw_particle_system(&self.system, &[&self.camera.bind_group]);
         
         drop(rpass);
 
