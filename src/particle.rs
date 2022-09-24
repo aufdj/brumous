@@ -36,11 +36,12 @@ impl From<Position> for [f32; 3] {
 }
 
 pub enum Area {
+    Point(Position),
     Cube([Range<f32>; 3]),
 }
 impl Default for Area {
     fn default() -> Self {
-        Self::Cube([-0.2..0.2, 0.0..0.0, -0.2..0.2])
+        Self::Point(Position::from([0.0, 0.0, 0.0]))
     }
 }
 
@@ -50,6 +51,7 @@ pub struct ParticleSystemDescriptor {
     rate:     usize,
     pos:      Position,
     name:     String,
+    life:     f32,
     gravity:  f32,
     settings: ParticleSettings,
 }
@@ -58,9 +60,10 @@ impl Default for ParticleSystemDescriptor {
         Self {
             mesh: ParticleMesh::default(),
             count: 500,
-            rate: 5,
+            rate: 3,
             pos: Position::default(),
             name: String::from("Particle System"),
+            life: 5.0,
             gravity: -9.81,
             settings: ParticleSettings::default(),
         }
@@ -79,6 +82,7 @@ pub struct ParticleSystem {
     position:           Position,
     texture:            Option<Texture>,
     name:               String,
+    life:               f32,
     gravity:            f32,
     settings:           ParticleSettings,
     pipeline:           wgpu::RenderPipeline,
@@ -122,6 +126,7 @@ impl ParticleSystem {
             position: desc.pos,
             texture: None,
             name: desc.name,
+            life: desc.life,
             gravity: desc.gravity,
             settings: desc.settings,
             pipeline,
@@ -145,9 +150,12 @@ impl ParticleSystem {
         0
     }
     pub fn update(&mut self, delta: f32, queue: &wgpu::Queue) {
-        for _ in 0..self.particle_rate {
-            let particle = self.find_unused_particle();
-            self.particles[particle] = Particle::from(&mut self.settings);
+        self.life -= delta;
+        if self.life > 0.0 {
+            for _ in 0..self.particle_rate {
+                let particle = self.find_unused_particle();
+                self.particles[particle] = Particle::from(&mut self.settings);
+            }
         }
 
         for (index, particle) in self.particles.iter_mut().enumerate() {
@@ -290,6 +298,9 @@ impl From<&mut ParticleSettings> for Particle {
                 let s3 = settings.rand.in_range(&dim[2]);
                 Vector3::new(s1 + settings.pos.x, s2 + settings.pos.y, s3 + settings.pos.z)
             }
+            Area::Point(pos) => {
+                Vector3::new(pos.x + settings.pos.x, pos.y + settings.pos.y, pos.z + settings.pos.z)
+            }
         };
 
         let v1 = settings.rand.in_range(&settings.init_vel[0]);
@@ -394,6 +405,10 @@ impl ToRaw for Vec<Particle> {
     }
 }
 
+
+pub struct ParticleMeshType {
+
+}
 #[derive(Clone, Debug)]
 pub struct ParticleMesh {
     pub vertices:  Vec<Vertex>,
