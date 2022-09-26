@@ -24,7 +24,7 @@ pub struct ParticleSystemBounds {
     pub life:        Range<f32>,
     pub weight:      Range<f32>,
     pub scale:       Range<f32>,
-    pub rand:        Randf32,
+    rand:            Randf32,
 }
 impl Default for ParticleSystemBounds {
     fn default() -> Self {

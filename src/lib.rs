@@ -170,17 +170,23 @@ impl ParticleSystem {
     pub fn set_name(&mut self, name: String) {
         self.name = name;
     }
-    pub fn set_weight(&mut self, weight: Range<f32>) {
+    pub fn set_weight_bounds(&mut self, weight: Range<f32>) {
         self.bounds.weight = weight;
     }
-    pub fn set_initial_velocity(&mut self, init_vel: [Range<f32>; 3]) {
+    pub fn set_initial_velocity_bounds(&mut self, init_vel: [Range<f32>; 3]) {
         self.bounds.init_vel = init_vel;
     }
     pub fn set_spawn_range(&mut self, spawn_range: SpawnRange) {
         self.bounds.spawn_range = spawn_range;
     }
-    pub fn set_life(&mut self, life: Range<f32>) {
+    pub fn set_life_bounds(&mut self, life: Range<f32>) {
         self.bounds.life = life;
+    }
+    pub fn set_color_bounds(&mut self, color: [Range<f32>; 4]) {
+        self.bounds.color = color;
+    }
+    pub fn set_scale_bounds(&mut self, scale: Range<f32>) {
+        self.bounds.scale = scale;
     }
     pub fn clear(&mut self, encoder: &mut wgpu::CommandEncoder) {
         encoder.clear_buffer(&self.particle_buf, 0, self.particle_buf_size());
