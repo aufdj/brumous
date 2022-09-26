@@ -1,18 +1,11 @@
 use std::mem;
-use std::num::NonZeroU64;
-use std::path::Path;
-use std::io::Read;
 use std::ops::Range;
 
 use cgmath::{Vector3, Vector4, Matrix3, Matrix4, Quaternion};
-use wgpu::util::DeviceExt;
 use bytemuck;
 
 use crate::model::{Vertex, VertexLayout};
 use crate::random::Randf32;
-use crate::texture::Texture;
-use crate::gpu::Gpu;
-use crate::bufio::new_input_file;
 
 #[derive(Default, Copy, Clone)]
 pub struct Position {
@@ -45,194 +38,15 @@ impl Default for Area {
     }
 }
 
-pub struct ParticleSystemDescriptor {
-    mesh:     ParticleMesh,
-    count:    usize,
-    rate:     usize,
-    pos:      Position,
-    name:     String,
-    life:     f32,
-    gravity:  f32,
-    settings: ParticleSettings,
-}
-impl Default for ParticleSystemDescriptor {
-    fn default() -> Self {
-        Self {
-            mesh: ParticleMesh::default(),
-            count: 500,
-            rate: 3,
-            pos: Position::default(),
-            name: String::from("Particle System"),
-            life: 5.0,
-            gravity: -9.81,
-            settings: ParticleSettings::default(),
-        }
-    }
-}
-
-
-pub struct ParticleSystem {
-    pub particles:      Vec<Particle>,
-    pub mesh:           ParticleMesh,
-    pub vbuf:           wgpu::Buffer,
-    pub ibuf:           wgpu::Buffer,
-    pub particle_buf:   wgpu::Buffer,
-    last_used_particle: usize,
-    particle_rate:      usize,
-    position:           Position,
-    texture:            Option<Texture>,
-    name:               String,
-    life:               f32,
-    gravity:            f32,
-    settings:           ParticleSettings,
-    pipeline:           wgpu::RenderPipeline,
-}
-impl ParticleSystem {
-    pub fn new(device: &wgpu::Device, desc: ParticleSystemDescriptor, pipeline: wgpu::RenderPipeline) -> Self {
-        let particles = vec![Particle::default(); desc.count];
-
-        let vbuf = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Particle Vertex Buffer"),
-                contents: bytemuck::cast_slice(&desc.mesh.vertices),
-                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            }
-        );
-
-        let ibuf = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Particle Index Buffer"),
-                contents: bytemuck::cast_slice(&desc.mesh.indices),
-                usage: wgpu::BufferUsages::INDEX,
-            }
-        );
-
-        let particle_buf = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Instance Buffer"),
-                contents: bytemuck::cast_slice(&particles.to_raw()),
-                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            }
-        );
-
-        Self {
-            particles,
-            vbuf,
-            ibuf,
-            particle_buf,
-            last_used_particle: 0,
-            mesh: desc.mesh,
-            particle_rate: desc.rate,
-            position: desc.pos,
-            texture: None,
-            name: desc.name,
-            life: desc.life,
-            gravity: desc.gravity,
-            settings: desc.settings,
-            pipeline,
-        }
-    }
-    fn find_unused_particle(&mut self) -> usize {
-        for i in self.last_used_particle..self.particles.len() {
-            if self.particles[i].life < 0.0 {
-                self.last_used_particle = i;
-                return i;
-            }
-        }
-
-        for i in 0..self.last_used_particle {
-            if self.particles[i].life < 0.0 {
-                self.last_used_particle = i;
-                return i;
-            }
-        }
-        self.last_used_particle = 0;
-        0
-    }
-    pub fn update(&mut self, delta: f32, queue: &wgpu::Queue) {
-        self.life -= delta;
-        if self.life > 0.0 {
-            for _ in 0..self.particle_rate {
-                let particle = self.find_unused_particle();
-                self.particles[particle] = Particle::from(&mut self.settings);
-            }
-        }
-
-        for (index, particle) in self.particles.iter_mut().enumerate() {
-            particle.life -= delta;
-            if particle.life > 0.0 {
-                particle.update(delta, self.gravity);
-                queue.write_buffer(
-                    &self.particle_buf,
-                    index as u64 * ParticleRaw::size(),
-                    bytemuck::cast_slice(&[particle.to_raw()])
-                );
-            }
-        }
-        if self.last_used_particle > self.particles.len() {
-            self.last_used_particle = self.particles.len() - 1;
-        }
-    }
-    pub fn resize(&mut self, count: i32, device: &wgpu::Device) {
-        self.particles.resize(count as usize, Particle::default());
-        self.particle_buf = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Particle Buffer"),
-                contents: bytemuck::cast_slice(&self.particles.to_raw()),
-                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            }
-        );
-    }
-    pub fn particle_count(&self) -> u32 {
-        self.particles.len() as u32
-    }
-    pub fn particle_buf_size(&self) -> Option<NonZeroU64> {
-        NonZeroU64::new(self.particles.len() as u64 * ParticleRaw::size())
-    }
-    pub fn set_position(&mut self, pos: [f32; 3]) {
-        self.position = Position::from(pos);
-    }
-    pub fn set_texture(&mut self, gpu: &Gpu, texture_path: &Path) {
-        let mut diffuse_data = Vec::new();
-        new_input_file(&texture_path).unwrap().read_to_end(&mut diffuse_data).unwrap();
-        let texture = Texture::new(&gpu.device, &gpu.queue, &diffuse_data, None).unwrap();
-        self.texture = Some(texture);
-    }
-    pub fn set_particle_rate(&mut self, particle_rate: usize) {
-        self.particle_rate = particle_rate;
-    }
-    pub fn set_gravity(&mut self, gravity: f32) {
-        self.gravity = gravity;
-    }
-    pub fn set_name(&mut self, name: String) {
-        self.name = name;
-    }
-    pub fn set_weight(&mut self, weight: Range<f32>) {
-        self.settings.weight = weight;
-    }
-    pub fn set_initial_velocity(&mut self, init_vel: [Range<f32>; 3]) {
-        self.settings.init_vel = init_vel;
-    }
-    pub fn set_area(&mut self, area: Area) {
-        self.settings.area = area;
-    }
-    pub fn set_life(&mut self, life: Range<f32>) {
-        self.settings.life = life;
-    }
-    pub fn clear(&mut self, encoder: &mut wgpu::CommandEncoder) {
-        encoder.clear_buffer(&self.particle_buf, 0, self.particle_buf_size());
-    }
-}
-
-struct ParticleSettings {
-    pos:      Position,
-    area:     Area,
-    init_vel: [Range<f32>; 3],
-    color:    [Range<f32>; 4],
-    life:     Range<f32>,
-    weight:   Range<f32>,
-    scale:    Range<f32>,
-    rand:     Randf32,
+pub struct ParticleSettings {
+    pub pos:      Position,
+    pub area:     Area,
+    pub init_vel: [Range<f32>; 3],
+    pub color:    [Range<f32>; 4],
+    pub life:     Range<f32>,
+    pub weight:   Range<f32>,
+    pub scale:    Range<f32>,
+    pub rand:     Randf32,
 }
 impl Default for ParticleSettings {
     fn default() -> Self {
@@ -405,10 +219,6 @@ impl ToRaw for Vec<Particle> {
     }
 }
 
-
-pub struct ParticleMeshType {
-
-}
 #[derive(Clone, Debug)]
 pub struct ParticleMesh {
     pub vertices:  Vec<Vertex>,
@@ -467,47 +277,3 @@ impl Default for ParticleMesh {
     }
 }
 
-pub trait DrawParticleSystem<'a, 'b> where 'a: 'b {
-    fn draw_particle_system(
-        &'b mut self, 
-        sys: &'a ParticleSystem, 
-        bind_groups: &[&'a wgpu::BindGroup]
-    );
-}
-impl<'a, 'b> DrawParticleSystem<'a, 'b> for wgpu::RenderPass<'a> where 'a: 'b {
-    fn draw_particle_system(
-        &'b mut self, 
-        sys: &'a ParticleSystem, 
-        bind_groups: &[&'a wgpu::BindGroup]
-    ) {
-        self.set_pipeline(&sys.pipeline);
-
-        for (i, group) in bind_groups.iter().enumerate() {
-            self.set_bind_group(i as u32, group, &[]);
-        }
-        
-        self.set_vertex_buffer(0, sys.vbuf.slice(..));
-        self.set_vertex_buffer(1, sys.particle_buf.slice(..));
-
-        self.set_index_buffer(sys.ibuf.slice(..), wgpu::IndexFormat::Uint16);
-        
-        self.draw_indexed(0..sys.mesh.indices.len() as u32, 0, 0..sys.particle_count());
-    }
-}
-
-pub trait CreateParticleSystem {
-    fn create_particle_system(
-        &self, 
-        desc: ParticleSystemDescriptor, 
-        pipeline: wgpu::RenderPipeline
-    ) -> ParticleSystem;
-}
-impl CreateParticleSystem for wgpu::Device {
-    fn create_particle_system(
-        &self, 
-        desc: ParticleSystemDescriptor, 
-        pipeline: wgpu::RenderPipeline
-    ) -> ParticleSystem {
-        ParticleSystem::new(self, desc, pipeline)
-    }
-}
