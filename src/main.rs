@@ -188,7 +188,7 @@ pub async fn run() {
         match event {
             Event::NewEvents(StartCause::Poll) => {
                 state.delta.update(Instant::now());
-                stdout.write_fmt(format_args!("\rframetime: {:?}", state.delta.frame_time())).unwrap();
+                stdout.write_fmt(format_args!("\rframetime: {:?}  ", state.delta.frame_time())).unwrap();
             }
             Event::WindowEvent { ref event, window_id, } if window_id == window.id() => {
                 if !state.input(event) {

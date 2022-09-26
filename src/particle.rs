@@ -7,58 +7,73 @@ use bytemuck;
 use crate::model::{Vertex, VertexLayout};
 use crate::random::Randf32;
 
-#[derive(Default, Copy, Clone)]
-pub struct Position {
-    pub x: f32,
-    pub y: f32,
-    pub z: f32,
+pub enum SpawnRange {
+    Point,
+    Area([Range<f32>; 3]),
 }
-impl From<[f32; 3]> for Position {
-    fn from(pos: [f32; 3]) -> Self {
+impl Default for SpawnRange {
+    fn default() -> Self {
+        Self::Point
+    }
+}
+
+pub struct ParticleSystemBounds {
+    pub spawn_range: SpawnRange,
+    pub init_vel:    [Range<f32>; 3],
+    pub color:       [Range<f32>; 4],
+    pub life:        Range<f32>,
+    pub weight:      Range<f32>,
+    pub scale:       Range<f32>,
+    pub rand:        Randf32,
+}
+impl Default for ParticleSystemBounds {
+    fn default() -> Self {
         Self {
-            x: pos[0],
-            y: pos[1],
-            z: pos[2],
+            spawn_range: SpawnRange::default(),
+            life:        1.0..10.0,
+            init_vel:    [-0.2..0.2, 0.5..1.0, -0.2..0.2],
+            color:       [0.0..1.0, 0.0..1.0, 0.0..1.0, 0.0..1.0],
+            weight:      0.1..1.0,
+            scale:       0.005..0.010,
+            rand:        Randf32::new(),
         }
     }
 }
-impl From<Position> for [f32; 3] {
-    fn from(pos: Position) -> Self {
-        [pos.x, pos.y, pos.z]
+impl ParticleSystemBounds {
+    pub fn random_initial_velocity(&mut self) -> Vector3<f32> {
+        let v1 = self.rand.in_range(&self.init_vel[0]);
+        let v2 = self.rand.in_range(&self.init_vel[1]);
+        let v3 = self.rand.in_range(&self.init_vel[2]);
+        Vector3::new(v1, v2, v3)
     }
-}
-
-pub enum Area {
-    Point(Position),
-    Cube([Range<f32>; 3]),
-}
-impl Default for Area {
-    fn default() -> Self {
-        Self::Point(Position::from([0.0, 0.0, 0.0]))
+    pub fn random_color(&mut self) -> Vector4<f32> {
+        let r = self.rand.in_range(&self.color[0]);
+        let g = self.rand.in_range(&self.color[1]);
+        let b = self.rand.in_range(&self.color[2]);
+        let a = self.rand.in_range(&self.color[3]);
+        Vector4::new(a, r, g, b)
     }
-}
-
-pub struct ParticleSettings {
-    pub pos:      Position,
-    pub area:     Area,
-    pub init_vel: [Range<f32>; 3],
-    pub color:    [Range<f32>; 4],
-    pub life:     Range<f32>,
-    pub weight:   Range<f32>,
-    pub scale:    Range<f32>,
-    pub rand:     Randf32,
-}
-impl Default for ParticleSettings {
-    fn default() -> Self {
-        Self {
-            pos:      Position::from([0.0, 0.0, 0.0]),
-            area:     Area::default(),
-            life:     1.0..10.0,
-            init_vel: [-0.2..0.2, 0.5..1.0, -0.2..0.2],
-            color:    [0.0..1.0, 0.0..1.0, 0.0..1.0, 0.0..1.0],
-            weight:   0.1..1.0,
-            scale:    0.005..0.010,
-            rand:     Randf32::new(),
+    pub fn random_life(&mut self) -> f32 {
+        self.rand.in_range(&self.life)
+    }
+    pub fn random_weight(&mut self) -> f32 {
+        self.rand.in_range(&self.weight)
+    }
+    pub fn random_scale(&mut self) -> f32 {
+        self.rand.in_range(&self.scale)
+    }
+    pub fn random_spawn_range(&mut self) -> Vector3<f32> {
+        match &self.spawn_range {
+            SpawnRange::Area(dim) => {
+                Vector3::new(
+                    self.rand.in_range(&dim[0]),
+                    self.rand.in_range(&dim[1]),
+                    self.rand.in_range(&dim[2]),
+                )
+            }
+            SpawnRange::Point => {
+                Vector3::new(0.0, 0.0, 0.0)
+            }
         }
     }
 }
@@ -100,46 +115,6 @@ impl Default for Particle {
             life: 0.0, 
             weight: 1.0,
             color: Vector4::new(0.0, 0.0, 0.0, 0.0),
-        }
-    }
-}
-impl From<&mut ParticleSettings> for Particle {
-    fn from(settings: &mut ParticleSettings) -> Particle {
-        let pos = match &settings.area {
-            Area::Cube(dim) => {
-                let s1 = settings.rand.in_range(&dim[0]);
-                let s2 = settings.rand.in_range(&dim[1]);
-                let s3 = settings.rand.in_range(&dim[2]);
-                Vector3::new(s1 + settings.pos.x, s2 + settings.pos.y, s3 + settings.pos.z)
-            }
-            Area::Point(pos) => {
-                Vector3::new(pos.x + settings.pos.x, pos.y + settings.pos.y, pos.z + settings.pos.z)
-            }
-        };
-
-        let v1 = settings.rand.in_range(&settings.init_vel[0]);
-        let v2 = settings.rand.in_range(&settings.init_vel[1]);
-        let v3 = settings.rand.in_range(&settings.init_vel[2]);
-        let vel = Vector3::new(v1, v2, v3);
-
-        let r = settings.rand.in_range(&settings.color[0]);
-        let g = settings.rand.in_range(&settings.color[1]);
-        let b = settings.rand.in_range(&settings.color[2]);
-        let a = settings.rand.in_range(&settings.color[3]);
-        let color = Vector4::new(a, r, g, b);
-
-        let life = settings.rand.in_range(&settings.life);
-        let weight = settings.rand.in_range(&settings.weight);
-        let scale = settings.rand.in_range(&settings.scale);
-
-        Particle {
-            pos,
-            vel,
-            color,
-            life,
-            scale,
-            rot: Quaternion::new(0.0, 0.0, 0.0, 0.0),
-            weight,
         }
     }
 }

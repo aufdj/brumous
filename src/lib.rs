@@ -19,6 +19,7 @@ use crate::gpu::Gpu;
 use crate::bufio::new_input_file;
 
 use wgpu::util::DeviceExt;
+use cgmath::{Vector3, Quaternion};
 
 pub struct ParticleSystem {
     pub particles:      Vec<Particle>,
@@ -28,12 +29,12 @@ pub struct ParticleSystem {
     pub particle_buf:   wgpu::Buffer,
     last_used_particle: usize,
     particle_rate:      usize,
-    position:           Position,
+    position:           Vector3<f32>,
     texture:            Option<Texture>,
     name:               String,
     life:               f32,
     gravity:            f32,
-    settings:           ParticleSettings,
+    bounds:             ParticleSystemBounds,
     pipeline:           wgpu::RenderPipeline,
 }
 impl ParticleSystem {
@@ -79,7 +80,7 @@ impl ParticleSystem {
             name: desc.name,
             life: desc.life,
             gravity: desc.gravity,
-            settings: desc.settings,
+            bounds: desc.bounds,
             pipeline,
         }
     }
@@ -100,12 +101,23 @@ impl ParticleSystem {
         self.last_used_particle = 0;
         0
     }
+    pub fn new_particle(&mut self) -> Particle {
+        Particle {
+            pos:    self.position + self.bounds.random_spawn_range(),
+            rot:    Quaternion::new(0.0, 0.0, 0.0, 0.0), 
+            vel:    self.bounds.random_initial_velocity(), 
+            scale:  self.bounds.random_scale(),
+            life:   self.bounds.random_life(), 
+            weight: self.bounds.random_weight(),
+            color:  self.bounds.random_color(),
+        }
+    }
     pub fn update(&mut self, delta: f32, queue: &wgpu::Queue) {
         self.life -= delta;
         if self.life > 0.0 {
             for _ in 0..self.particle_rate {
-                let particle = self.find_unused_particle();
-                self.particles[particle] = Particle::from(&mut self.settings);
+                let idx = self.find_unused_particle();
+                self.particles[idx] = self.new_particle();
             }
         }
 
@@ -141,7 +153,7 @@ impl ParticleSystem {
         NonZeroU64::new(self.particles.len() as u64 * ParticleRaw::size())
     }
     pub fn set_position(&mut self, pos: [f32; 3]) {
-        self.position = Position::from(pos);
+        self.position = Vector3::new(pos[0], pos[1], pos[2]);
     }
     pub fn set_texture(&mut self, gpu: &Gpu, texture_path: &Path) {
         let mut diffuse_data = Vec::new();
@@ -159,16 +171,16 @@ impl ParticleSystem {
         self.name = name;
     }
     pub fn set_weight(&mut self, weight: Range<f32>) {
-        self.settings.weight = weight;
+        self.bounds.weight = weight;
     }
     pub fn set_initial_velocity(&mut self, init_vel: [Range<f32>; 3]) {
-        self.settings.init_vel = init_vel;
+        self.bounds.init_vel = init_vel;
     }
-    pub fn set_area(&mut self, area: Area) {
-        self.settings.area = area;
+    pub fn set_spawn_range(&mut self, spawn_range: SpawnRange) {
+        self.bounds.spawn_range = spawn_range;
     }
     pub fn set_life(&mut self, life: Range<f32>) {
-        self.settings.life = life;
+        self.bounds.life = life;
     }
     pub fn clear(&mut self, encoder: &mut wgpu::CommandEncoder) {
         encoder.clear_buffer(&self.particle_buf, 0, self.particle_buf_size());
@@ -179,11 +191,11 @@ pub struct ParticleSystemDescriptor {
     mesh:     ParticleMesh,
     count:    usize,
     rate:     usize,
-    pos:      Position,
+    pos:      Vector3<f32>,
     name:     String,
     life:     f32,
     gravity:  f32,
-    settings: ParticleSettings,
+    bounds:   ParticleSystemBounds,
 }
 impl Default for ParticleSystemDescriptor {
     fn default() -> Self {
@@ -191,11 +203,11 @@ impl Default for ParticleSystemDescriptor {
             mesh: ParticleMesh::default(),
             count: 500,
             rate: 3,
-            pos: Position::default(),
+            pos: Vector3::new(0.0, 0.0, 0.0),
             name: String::from("Particle System"),
             life: 5.0,
             gravity: -9.81,
-            settings: ParticleSettings::default(),
+            bounds: ParticleSystemBounds::default(),
         }
     }
 }
