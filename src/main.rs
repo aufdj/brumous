@@ -6,7 +6,6 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
-use bytemuck;
 
 use brumous::camera::*;
 use brumous::texture::{Texture, DepthTexture};
@@ -123,9 +122,7 @@ impl State {
     }
 
     fn update(&mut self, delta: f32) {
-        self.camera.update();
-        self.gpu.queue.write_buffer(&self.camera.buffer, 0, bytemuck::cast_slice(&[self.camera.uniform]));
-
+        self.camera.update(&self.gpu.queue);
         self.system.update(delta, &self.gpu.queue);
     }
 
@@ -175,7 +172,6 @@ impl State {
 }
  
 pub async fn run() {
-    env_logger::init();
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
     let mut state = State::new(&window).await;

@@ -87,7 +87,7 @@ impl Camera {
     pub fn update_view_proj(&mut self) {
         self.uniform.view_proj = self.build_view_projection_matrix().into();
     }
-    pub fn update(&mut self) {
+    pub fn update(&mut self, queue: &wgpu::Queue) {
         use cgmath::InnerSpace;
         let forward = self.target - self.eye;
         let forward_norm = forward.normalize();
@@ -119,6 +119,7 @@ impl Camera {
             self.eye = self.target - (forward - right * self.controller.speed).normalize() * forward_mag;
         }
         self.update_view_proj();
+        queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(&[self.uniform]));
     }
 }
 

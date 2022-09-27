@@ -1,30 +1,30 @@
 // use std::ops::{Neg, Add, Sub, Mul, Div};
 // use std::fmt;
 
-// use crate::random::Randf64;
+// use crate::random::Randf32;
 
 // pub type Point3 = Vec3;
 // pub type Color = Vec3;
 
 // #[derive(PartialEq, Clone, Copy, Default)]
 // pub struct Vec3 {
-//     pub x: f64,
-//     pub y: f64,
-//     pub z: f64,
+//     pub x: f32,
+//     pub y: f32,
+//     pub z: f32,
 // }
 // impl Vec3 {
-//     pub fn from(x: f64, y: f64, z: f64) -> Self {
+//     pub fn from(x: f32, y: f32, z: f32) -> Self {
 //         Self {
 //             x, y, z,
 //         }
 //     }
-//     pub fn len(&self) -> f64 {
+//     pub fn len(&self) -> f32 {
 //         self.len_sq().sqrt()
 //     }
-//     pub fn len_sq(&self) -> f64 {
+//     pub fn len_sq(&self) -> f32 {
 //         self.x*self.x + self.y*self.y + self.z*self.z
 //     }
-//     pub fn dot(&self, vec: &Vec3) -> f64 {
+//     pub fn dot(&self, vec: &Vec3) -> f32 {
 //         self.x*vec.x + self.y*vec.y + self.z*vec.z
 //     }
 //     pub fn cross(&self, vec: &Vec3) -> Self {
@@ -38,14 +38,14 @@
 //         let len = self.len();
 //         Self::from(self.x / len, self.y / len, self.z / len)
 //     }
-//     pub fn random_in_range(rand: &mut Randf64, min: f64, max: f64) -> Self {
+//     pub fn random_in_range(rand: &mut Randf32, min: f32, max: f32) -> Self {
 //         Self {
 //             x: rand.in_range(min, max),
 //             y: rand.in_range(min, max),
 //             z: rand.in_range(min, max),
 //         }
 //     }
-//     pub fn random_in_unit_sphere(rand: &mut Randf64) -> Self {
+//     pub fn random_in_unit_sphere(rand: &mut Randf32) -> Self {
 //         loop {
 //             let vec = Self::random_in_range(rand, -1.0, 1.0);
 //             if vec.len_sq() <= 1.0 {
@@ -53,10 +53,10 @@
 //             }
 //         }
 //     }
-//     pub fn random_unit_vec(rand: &mut Randf64) -> Self {
+//     pub fn random_unit_vec(rand: &mut Randf32) -> Self {
 //         Self::random_in_unit_sphere(rand).norm()
 //     }
-//     pub fn random_in_hemisphere(rand: &mut Randf64, normal: Vec3) -> Self {
+//     pub fn random_in_hemisphere(rand: &mut Randf32, normal: Vec3) -> Self {
 //         let in_unit_sphere = Self::random_in_unit_sphere(rand);
 //         if in_unit_sphere.dot(&normal) >= 0.0 {
 //             return in_unit_sphere;
@@ -102,17 +102,17 @@
 //         Self::from(self.x - other.x, self.y - other.y, self.z - other.z)
 //     }
 // }
-// impl Mul<f64> for Vec3 {
+// impl Mul<f32> for Vec3 {
 //     type Output = Self;
 
-//     fn mul(self, other: f64) -> Self::Output {
+//     fn mul(self, other: f32) -> Self::Output {
 //         Self::from(self.x * other, self.y * other, self.z * other)
 //     }
 // }
-// impl Div<f64> for Vec3 {
+// impl Div<f32> for Vec3 {
 //     type Output = Self;
 
-//     fn div(self, other: f64) -> Self::Output {
+//     fn div(self, other: f32) -> Self::Output {
 //         Self::from(self.x / other, self.y / other, self.z / other)
 //     }
 // }
@@ -167,27 +167,27 @@
 
 // #[derive(PartialEq, Clone, Copy, Default)]
 // pub struct Vec4 {
-//     pub x: f64,
-//     pub y: f64,
-//     pub z: f64,
-//     pub w: f64,
+//     pub x: f32,
+//     pub y: f32,
+//     pub z: f32,
+//     pub w: f32,
 // }
-// impl Vec3 {
-//     pub fn from(x: f64, y: f64, z: f64) -> Self {
+// impl Vec4 {
+//     pub fn from(x: f32, y: f32, z: f32) -> Self {
 //         Self {
 //             x, 
 //             y, 
 //             z,
-//             w: 1.0,
+//             w: 0.0,
 //         }
 //     }
-//     pub fn len(&self) -> f64 {
+//     pub fn len(&self) -> f32 {
 //         self.len_sq().sqrt()
 //     }
-//     pub fn len_sq(&self) -> f64 {
+//     pub fn len_sq(&self) -> f32 {
 //         self.x*self.x + self.y*self.y + self.z*self.z + self.w*self.w
 //     }
-//     pub fn dot(&self, vec: &Vec3) -> f64 {
+//     pub fn dot(&self, vec: &Vec3) -> f32 {
 //         self.x*vec.x + self.y*vec.y + self.z*vec.z + self.w*vec.w
 //     }
 //     pub fn cross(&self, vec: &Vec3) -> Self {
@@ -201,14 +201,14 @@
 //         let len = self.len();
 //         Self::from(self.x / len, self.y / len, self.z / len)
 //     }
-//     pub fn random_in_range(rand: &mut Randf64, min: f64, max: f64) -> Self {
+//     pub fn random_in_range(rand: &mut Randf32, min: f32, max: f32) -> Self {
 //         Self {
 //             x: rand.in_range(min, max),
 //             y: rand.in_range(min, max),
 //             z: rand.in_range(min, max),
 //         }
 //     }
-//     pub fn random_in_unit_sphere(rand: &mut Randf64) -> Self {
+//     pub fn random_in_unit_sphere(rand: &mut Randf32) -> Self {
 //         loop {
 //             let vec = Self::random_in_range(rand, -1.0, 1.0);
 //             if vec.len_sq() <= 1.0 {
@@ -216,10 +216,10 @@
 //             }
 //         }
 //     }
-//     pub fn random_unit_vec(rand: &mut Randf64) -> Self {
+//     pub fn random_unit_vec(rand: &mut Randf32) -> Self {
 //         Self::random_in_unit_sphere(rand).norm()
 //     }
-//     pub fn random_in_hemisphere(rand: &mut Randf64, normal: Vec3) -> Self {
+//     pub fn random_in_hemisphere(rand: &mut Randf32, normal: Vec3) -> Self {
 //         let in_unit_sphere = Self::random_in_unit_sphere(rand);
 //         if in_unit_sphere.dot(&normal) >= 0.0 {
 //             return in_unit_sphere;
@@ -237,56 +237,56 @@
 //         *self - (*normal * (b * 2.0))
 //     }
 // }
-// impl Neg for Vec3 {
+// impl Neg for Vec4 {
 //     type Output = Self;
 
 //     fn neg(self) -> Self::Output {
 //         Self::from(-self.x, -self.y, -self.z)
 //     }
 // }
-// impl Add for Vec3 {
+// impl Add for Vec4 {
 //     type Output = Self;
 
 //     fn add(self, other: Self) -> Self::Output {
 //         Self::from(self.x + other.x, self.y + other.y, self.z + other.z)
 //     }
 // }
-// impl Sub for Vec3 {
+// impl Sub for Vec4 {
 //     type Output = Self;
 
 //     fn sub(self, other: Self) -> Self::Output {
 //         Self::from(self.x - other.x, self.y - other.y, self.z - other.z)
 //     }
 // }
-// impl Mul for Vec3 {
+// impl Mul for Vec4 {
 //     type Output = Self;
 
 //     fn mul(self, other: Self) -> Self::Output {
 //         Self::from(self.x - other.x, self.y - other.y, self.z - other.z)
 //     }
 // }
-// impl Mul<f64> for Vec3 {
+// impl Mul<f32> for Vec4 {
 //     type Output = Self;
 
-//     fn mul(self, other: f64) -> Self::Output {
+//     fn mul(self, other: f32) -> Self::Output {
 //         Self::from(self.x * other, self.y * other, self.z * other)
 //     }
 // }
-// impl Div<f64> for Vec3 {
+// impl Div<f32> for Vec4 {
 //     type Output = Self;
 
-//     fn div(self, other: f64) -> Self::Output {
+//     fn div(self, other: f32) -> Self::Output {
 //         Self::from(self.x / other, self.y / other, self.z / other)
 //     }
 // }
-// impl Div for Vec3 {
+// impl Div for Vec4 {
 //     type Output = Self;
 
 //     fn div(self, other: Self) -> Self::Output {
 //         Self::from(self.x / other.x, self.y / other.y, self.z / other.z)
 //     }
 // }
-// impl fmt::Display for Vec3 {
+// impl fmt::Display for Vec4 {
 //     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 //         write!(f, "
 //             \rx: {}

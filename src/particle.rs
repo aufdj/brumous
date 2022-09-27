@@ -1,5 +1,4 @@
 use std::mem;
-use std::ops::Range;
 use std::path::PathBuf;
 
 use cgmath::{Vector3, Vector4, Matrix3, Matrix4, Quaternion};
@@ -7,78 +6,6 @@ use bytemuck;
 use wgpu::util::DeviceExt;
 
 use crate::model::{Vertex, VertexLayout};
-use crate::random::Randf32;
-
-pub enum SpawnRange {
-    Point,
-    Area([Range<f32>; 3]),
-}
-impl Default for SpawnRange {
-    fn default() -> Self {
-        Self::Point
-    }
-}
-
-pub struct ParticleSystemBounds {
-    pub spawn_range: SpawnRange,
-    pub init_vel:    [Range<f32>; 3],
-    pub color:       [Range<f32>; 4],
-    pub life:        Range<f32>,
-    pub weight:      Range<f32>,
-    pub scale:       Range<f32>,
-    rand:            Randf32,
-}
-impl Default for ParticleSystemBounds {
-    fn default() -> Self {
-        Self {
-            spawn_range: SpawnRange::default(),
-            life:        1.0..10.0,
-            init_vel:    [-0.2..0.2, 0.5..1.0, -0.2..0.2],
-            color:       [0.0..1.0, 0.0..1.0, 0.0..1.0, 0.0..1.0],
-            weight:      0.1..1.0,
-            scale:       0.005..0.010,
-            rand:        Randf32::new(),
-        }
-    }
-}
-impl ParticleSystemBounds {
-    pub fn random_initial_velocity(&mut self) -> Vector3<f32> {
-        let v1 = self.rand.in_range(&self.init_vel[0]);
-        let v2 = self.rand.in_range(&self.init_vel[1]);
-        let v3 = self.rand.in_range(&self.init_vel[2]);
-        Vector3::new(v1, v2, v3)
-    }
-    pub fn random_color(&mut self) -> Vector4<f32> {
-        let r = self.rand.in_range(&self.color[0]);
-        let g = self.rand.in_range(&self.color[1]);
-        let b = self.rand.in_range(&self.color[2]);
-        let a = self.rand.in_range(&self.color[3]);
-        Vector4::new(a, r, g, b)
-    }
-    pub fn random_life(&mut self) -> f32 {
-        self.rand.in_range(&self.life)
-    }
-    pub fn random_weight(&mut self) -> f32 {
-        self.rand.in_range(&self.weight)
-    }
-    pub fn random_scale(&mut self) -> f32 {
-        self.rand.in_range(&self.scale)
-    }
-    pub fn random_spawn_range(&mut self) -> Vector3<f32> {
-        match &self.spawn_range {
-            SpawnRange::Area(dim) => {
-                Vector3::new(
-                    self.rand.in_range(&dim[0]),
-                    self.rand.in_range(&dim[1]),
-                    self.rand.in_range(&dim[2]),
-                )
-            }
-            SpawnRange::Point => {
-                Vector3::new(0.0, 0.0, 0.0)
-            }
-        }
-    }
-}
 
 #[derive(Clone)]
 pub struct Particle {
@@ -204,12 +131,10 @@ pub enum ParticleMeshType {
     Custom(PathBuf),
 }
 
-// #[derive(Clone, Debug)]
 pub struct ParticleMesh {
-    pub vertices:  Vec<Vertex>,
-    pub indices:   Vec<u16>,
-    pub vbuf:      wgpu::Buffer,
-    pub ibuf:      wgpu::Buffer,
+    pub index_count: u32,
+    pub vertex_buf:  wgpu::Buffer,
+    pub index_buf:   wgpu::Buffer,
 }
 impl ParticleMesh {
     pub fn new(device: &wgpu::Device, mesh_type: &ParticleMeshType) -> Self {
@@ -261,7 +186,9 @@ impl ParticleMesh {
             }
         };
 
-        let vbuf = device.create_buffer_init(
+        let index_count = indices.len() as u32;
+
+        let vertex_buf = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: Some("Particle Vertex Buffer"),
                 contents: bytemuck::cast_slice(&vertices),
@@ -269,7 +196,7 @@ impl ParticleMesh {
             }
         );
     
-        let ibuf = device.create_buffer_init(
+        let index_buf = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: Some("Particle Index Buffer"),
                 contents: bytemuck::cast_slice(&indices),
@@ -278,7 +205,7 @@ impl ParticleMesh {
         );
     
         Self {
-            vertices, indices, ibuf, vbuf,
+            index_count, vertex_buf, index_buf, 
         }
     }
 }

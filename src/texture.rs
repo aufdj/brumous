@@ -1,11 +1,11 @@
 use image::{ImageError, GenericImageView};
 
 pub struct Texture {
-    pub texture:      wgpu::Texture,
-    pub view:         wgpu::TextureView,
-    pub sampler:      wgpu::Sampler,
-    pub bind_group:   wgpu::BindGroup,
-    pub bind_layout:  wgpu::BindGroupLayout,
+    pub texture:     wgpu::Texture,
+    pub view:        wgpu::TextureView,
+    pub sampler:     wgpu::Sampler,
+    pub bind_group:  wgpu::BindGroup,
+    pub bind_layout: wgpu::BindGroupLayout,
 }
 impl Texture {
     pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
