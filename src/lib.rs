@@ -92,16 +92,8 @@ impl ParticleSystem {
     }
     /// Create new particle 
     fn new_particle(&mut self) -> Particle {
-        let pos = match &self.bounds.spawn_range {
-            SpawnRange::Area(dim) => {
-                self.position + self.rand.vec3_in_range(&dim)
-            }
-            SpawnRange::Point => {
-                self.position
-            }
-        };
         Particle {
-            pos,
+            pos,    self.rand.vec3_in_range(&self.bounds.spawn_range)
             vel:    self.rand.vec3_in_range(&self.bounds.init_vel), 
             rot:    Quaternion::new(0.0, 0.0, 0.0, 0.0), 
             color:  self.rand.vec4_in_range(&self.bounds.color),
@@ -230,18 +222,8 @@ impl Default for ParticleSystemDescriptor {
 }
 
 
-pub enum SpawnRange {
-    Point,
-    Area([Range<f32>; 3]),
-}
-impl Default for SpawnRange {
-    fn default() -> Self {
-        Self::Point
-    }
-}
-
 pub struct ParticleSystemBounds {
-    pub spawn_range: SpawnRange,
+    pub spawn_range: [Range<f32>; 3],
     pub init_vel:    [Range<f32>; 3],
     pub color:       [Range<f32>; 4],
     pub life:        Range<f32>,
@@ -251,7 +233,7 @@ pub struct ParticleSystemBounds {
 impl Default for ParticleSystemBounds {
     fn default() -> Self {
         Self {
-            spawn_range: SpawnRange::default(),
+            spawn_range: [0.0..0.0, 0.0..0.0, 0.0..0.0],
             life:        1.0..10.0,
             init_vel:    [-0.2..0.2, 0.5..1.0, -0.2..0.2],
             color:       [0.0..1.0, 0.0..1.0, 0.0..1.0, 0.0..1.0],
