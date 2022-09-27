@@ -21,41 +21,29 @@ use crate::bufio::new_input_file;
 use wgpu::util::DeviceExt;
 use cgmath::{Vector3, Quaternion};
 
+/// A ParticleSystem manages a set of particles
 pub struct ParticleSystem {
-    pub particles:      Vec<Particle>,
-    pub mesh:           ParticleMesh,
-    pub vbuf:           wgpu::Buffer,
-    pub ibuf:           wgpu::Buffer,
-    pub particle_buf:   wgpu::Buffer,
-    last_used_particle: usize,
-    particle_rate:      usize,
-    position:           Vector3<f32>,
-    texture:            Option<Texture>,
-    name:               String,
-    life:               f32,
-    gravity:            f32,
-    bounds:             ParticleSystemBounds,
-    pipeline:           wgpu::RenderPipeline,
+    pipeline:         wgpu::RenderPipeline,
+    pub particles:    Vec<Particle>,
+    pub mesh:         ParticleMesh,
+    pub particle_buf: wgpu::Buffer,
+    search_pos:       usize,
+    particle_rate:    usize,
+    position:         Vector3<f32>,
+    texture:          Option<Texture>,
+    name:             String,
+    life:             f32,
+    gravity:          f32,
+    bounds:           ParticleSystemBounds,
 }
 impl ParticleSystem {
-    pub fn new(device: &wgpu::Device, desc: ParticleSystemDescriptor, pipeline_desc: &wgpu::RenderPipelineDescriptor) -> Self {
-        let particles = vec![Particle::default(); desc.count];
-
-        let vbuf = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Particle Vertex Buffer"),
-                contents: bytemuck::cast_slice(&desc.mesh.vertices),
-                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            }
-        );
-
-        let ibuf = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Particle Index Buffer"),
-                contents: bytemuck::cast_slice(&desc.mesh.indices),
-                usage: wgpu::BufferUsages::INDEX,
-            }
-        );
+    pub fn new(
+        device: &wgpu::Device, 
+        sys_desc: ParticleSystemDescriptor, 
+        rpipe_desc: &wgpu::RenderPipelineDescriptor
+    ) -> Self {
+        let particles = vec![Particle::default(); sys_desc.count];
+        let mesh = ParticleMesh::new(device, &sys_desc.mesh_type);
 
         let particle_buf = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
@@ -65,43 +53,42 @@ impl ParticleSystem {
             }
         );
 
-        let pipeline = device.create_render_pipeline(pipeline_desc);
+        let pipeline = device.create_render_pipeline(rpipe_desc);
 
         Self {
-            particles,
-            vbuf,
-            ibuf,
-            particle_buf,
-            last_used_particle: 0,
-            mesh: desc.mesh,
-            particle_rate: desc.rate,
-            position: desc.pos,
-            texture: None,
-            name: desc.name,
-            life: desc.life,
-            gravity: desc.gravity,
-            bounds: desc.bounds,
             pipeline,
+            particles,
+            particle_buf,
+            search_pos:    0,
+            texture:       None,
+            mesh,
+            particle_rate: sys_desc.rate,
+            position:      sys_desc.pos,
+            name:          sys_desc.name,
+            life:          sys_desc.life,
+            gravity:       sys_desc.gravity,
+            bounds:        sys_desc.bounds,
+            
         }
     }
     fn find_unused_particle(&mut self) -> usize {
-        for i in self.last_used_particle..self.particles.len() {
+        for i in self.search_pos..self.particles.len() {
             if self.particles[i].life < 0.0 {
-                self.last_used_particle = i;
+                self.search_pos = i;
                 return i;
             }
         }
 
-        for i in 0..self.last_used_particle {
+        for i in 0..self.search_pos {
             if self.particles[i].life < 0.0 {
-                self.last_used_particle = i;
+                self.search_pos = i;
                 return i;
             }
         }
-        self.last_used_particle = 0;
+        self.search_pos = 0;
         0
     }
-    pub fn new_particle(&mut self) -> Particle {
+    fn new_particle(&mut self) -> Particle {
         Particle {
             pos:    self.position + self.bounds.random_spawn_range(),
             rot:    Quaternion::new(0.0, 0.0, 0.0, 0.0), 
@@ -132,12 +119,12 @@ impl ParticleSystem {
                 );
             }
         }
-        if self.last_used_particle > self.particles.len() {
-            self.last_used_particle = self.particles.len() - 1;
+        if self.search_pos > self.particles.len() {
+            self.search_pos = self.particles.len() - 1;
         }
     }
-    pub fn resize(&mut self, count: i32, device: &wgpu::Device) {
-        self.particles.resize(count as usize, Particle::default());
+    pub fn resize(&mut self, count: usize, device: &wgpu::Device) {
+        self.particles.resize(count, Particle::default());
         self.particle_buf = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: Some("Particle Buffer"),
@@ -146,12 +133,14 @@ impl ParticleSystem {
             }
         );
     }
+    /// Return number of particles in particle system.
     pub fn particle_count(&self) -> u32 {
         self.particles.len() as u32
     }
     pub fn particle_buf_size(&self) -> Option<NonZeroU64> {
         NonZeroU64::new(self.particles.len() as u64 * ParticleRaw::size())
     }
+    /// Set position of particle system.
     pub fn set_position(&mut self, pos: [f32; 3]) {
         self.position = Vector3::new(pos[0], pos[1], pos[2]);
     }
@@ -161,52 +150,62 @@ impl ParticleSystem {
         let texture = Texture::new(&gpu.device, &gpu.queue, &diffuse_data, None).unwrap();
         self.texture = Some(texture);
     }
+    /// Set number of particles spawned per frame.
     pub fn set_particle_rate(&mut self, particle_rate: usize) {
         self.particle_rate = particle_rate;
     }
+    /// Set gravity of particle system.
     pub fn set_gravity(&mut self, gravity: f32) {
         self.gravity = gravity;
     }
+    /// Set name of particle system.
     pub fn set_name(&mut self, name: String) {
         self.name = name;
     }
+    /// Set minimum and maximum particle weight.
     pub fn set_weight_bounds(&mut self, weight: Range<f32>) {
         self.bounds.weight = weight;
     }
+    /// Set minimum and maximum initial particle velocity.
     pub fn set_initial_velocity_bounds(&mut self, init_vel: [Range<f32>; 3]) {
         self.bounds.init_vel = init_vel;
     }
+    /// Set dimensions of area in which particles spawn.
     pub fn set_spawn_range(&mut self, spawn_range: SpawnRange) {
         self.bounds.spawn_range = spawn_range;
     }
+    /// Set minimum and maximum particle lifetimes.
     pub fn set_life_bounds(&mut self, life: Range<f32>) {
         self.bounds.life = life;
     }
+    /// Set minimum and maximum particle RGBA values.
     pub fn set_color_bounds(&mut self, color: [Range<f32>; 4]) {
         self.bounds.color = color;
     }
+    /// Set minimum and maximum particle size.
     pub fn set_scale_bounds(&mut self, scale: Range<f32>) {
         self.bounds.scale = scale;
     }
+    /// Clear particle system's particle buffer.
     pub fn clear(&mut self, encoder: &mut wgpu::CommandEncoder) {
         encoder.clear_buffer(&self.particle_buf, 0, self.particle_buf_size());
     }
 }
 
 pub struct ParticleSystemDescriptor {
-    mesh:     ParticleMesh,
-    count:    usize,
-    rate:     usize,
-    pos:      Vector3<f32>,
-    name:     String,
-    life:     f32,
-    gravity:  f32,
-    bounds:   ParticleSystemBounds,
+    mesh_type: ParticleMeshType,
+    count:     usize,
+    rate:      usize,
+    pos:       Vector3<f32>,
+    name:      String,
+    life:      f32,
+    gravity:   f32,
+    bounds:    ParticleSystemBounds,
 }
 impl Default for ParticleSystemDescriptor {
     fn default() -> Self {
         Self {
-            mesh: ParticleMesh::default(),
+            mesh_type: ParticleMeshType::default(),
             count: 500,
             rate: 3,
             pos: Vector3::new(0.0, 0.0, 0.0),
@@ -238,10 +237,10 @@ impl<'a, 'b> DrawParticleSystem<'a, 'b> for wgpu::RenderPass<'a> where 'a: 'b {
             self.set_bind_group(i as u32, group, &[]);
         }
         
-        self.set_vertex_buffer(0, sys.vbuf.slice(..));
+        self.set_vertex_buffer(0, sys.mesh.vbuf.slice(..));
         self.set_vertex_buffer(1, sys.particle_buf.slice(..));
 
-        self.set_index_buffer(sys.ibuf.slice(..), wgpu::IndexFormat::Uint16);
+        self.set_index_buffer(sys.mesh.ibuf.slice(..), wgpu::IndexFormat::Uint16);
         
         self.draw_indexed(0..sys.mesh.indices.len() as u32, 0, 0..sys.particle_count());
     }

@@ -1,8 +1,10 @@
 use std::mem;
 use std::ops::Range;
+use std::path::PathBuf;
 
 use cgmath::{Vector3, Vector4, Matrix3, Matrix4, Quaternion};
 use bytemuck;
+use wgpu::util::DeviceExt;
 
 use crate::model::{Vertex, VertexLayout};
 use crate::random::Randf32;
@@ -108,13 +110,13 @@ impl Particle {
 impl Default for Particle {
     fn default() -> Self {
         Self {
-            pos: Vector3::new(0.0, -100.0, 0.0), 
-            rot: Quaternion::new(0.0, 0.0, 0.0, 0.0), 
-            vel: Vector3::new(0.0, 0.0, 0.0), 
-            scale: 0.008,
-            life: 0.0, 
+            pos:    Vector3::new(0.0, -100.0, 0.0), 
+            rot:    Quaternion::new(0.0, 0.0, 0.0, 0.0), 
+            vel:    Vector3::new(0.0, 0.0, 0.0), 
+            scale:  0.008,
+            life:   0.0, 
             weight: 1.0,
-            color: Vector4::new(0.0, 0.0, 0.0, 0.0),
+            color:  Vector4::new(0.0, 0.0, 0.0, 0.0),
         }
     }
 }
@@ -194,61 +196,90 @@ impl ToRaw for Vec<Particle> {
     }
 }
 
-#[derive(Clone, Debug)]
+
+#[derive(Default)]
+pub enum ParticleMeshType {
+    #[default]
+    Cube,
+    Custom(PathBuf),
+}
+
+// #[derive(Clone, Debug)]
 pub struct ParticleMesh {
     pub vertices:  Vec<Vertex>,
     pub indices:   Vec<u16>,
+    pub vbuf:      wgpu::Buffer,
+    pub ibuf:      wgpu::Buffer,
 }
 impl ParticleMesh {
-    pub fn cube() -> Self {
-        let vertices = vec![
-            // top (0, 0, 1)
-            Vertex { position: [-1.0, -1.0,  1.0], tex_coords: [0.0, 0.0], normal: [0.0, 1.0, 0.0] },
-            Vertex { position: [ 1.0, -1.0,  1.0], tex_coords: [1.0, 0.0], normal: [0.0, 1.0, 0.0] },
-            Vertex { position: [ 1.0,  1.0,  1.0], tex_coords: [1.0, 1.0], normal: [0.0, 1.0, 0.0] },
-            Vertex { position: [-1.0,  1.0,  1.0], tex_coords: [0.0, 1.0], normal: [0.0, 1.0, 0.0] },
-            // bottom (0, 0, -1)
-            Vertex { position: [-1.0,  1.0, -1.0], tex_coords: [1.0, 0.0], normal: [0.0, 1.0, 0.0] },
-            Vertex { position: [ 1.0,  1.0, -1.0], tex_coords: [0.0, 0.0], normal: [0.0, 1.0, 0.0] },
-            Vertex { position: [ 1.0, -1.0, -1.0], tex_coords: [0.0, 1.0], normal: [0.0, 1.0, 0.0] },
-            Vertex { position: [-1.0, -1.0, -1.0], tex_coords: [1.0, 1.0], normal: [0.0, 1.0, 0.0] },
-            // right (1, 0, 0)
-            Vertex { position: [ 1.0, -1.0, -1.0], tex_coords: [0.0, 0.0], normal: [0.0, 1.0, 0.0] },
-            Vertex { position: [ 1.0,  1.0, -1.0], tex_coords: [1.0, 0.0], normal: [0.0, 1.0, 0.0] },
-            Vertex { position: [ 1.0,  1.0,  1.0], tex_coords: [1.0, 1.0], normal: [0.0, 1.0, 0.0] },
-            Vertex { position: [ 1.0, -1.0,  1.0], tex_coords: [0.0, 1.0], normal: [0.0, 1.0, 0.0] },
-            // left (-1, 0, 0)
-            Vertex { position: [-1.0, -1.0,  1.0], tex_coords: [1.0, 0.0], normal: [0.0, 1.0, 0.0] },
-            Vertex { position: [-1.0,  1.0,  1.0], tex_coords: [0.0, 0.0], normal: [0.0, 1.0, 0.0] },
-            Vertex { position: [-1.0,  1.0, -1.0], tex_coords: [0.0, 1.0], normal: [0.0, 1.0, 0.0] },
-            Vertex { position: [-1.0, -1.0, -1.0], tex_coords: [1.0, 1.0], normal: [0.0, 1.0, 0.0] },
-            // front (0, 1, 0)
-            Vertex { position: [ 1.0,  1.0, -1.0], tex_coords: [1.0, 0.0], normal: [0.0, 1.0, 0.0] },
-            Vertex { position: [-1.0,  1.0, -1.0], tex_coords: [0.0, 0.0], normal: [0.0, 1.0, 0.0] },
-            Vertex { position: [-1.0,  1.0,  1.0], tex_coords: [0.0, 1.0], normal: [0.0, 1.0, 0.0] },
-            Vertex { position: [ 1.0,  1.0,  1.0], tex_coords: [1.0, 1.0], normal: [0.0, 1.0, 0.0] },
-            // back (0, -1, 0)
-            Vertex { position: [ 1.0, -1.0,  1.0], tex_coords: [0.0, 0.0], normal: [0.0, 1.0, 0.0] },
-            Vertex { position: [-1.0, -1.0,  1.0], tex_coords: [1.0, 0.0], normal: [0.0, 1.0, 0.0] },
-            Vertex { position: [-1.0, -1.0, -1.0], tex_coords: [1.0, 1.0], normal: [0.0, 1.0, 0.0] },
-            Vertex { position: [ 1.0, -1.0, -1.0], tex_coords: [0.0, 1.0], normal: [0.0, 1.0, 0.0] },
-        ];
-        let indices = vec![
-            0u16, 1,  2,  2,  3,  0, // top
-            4,    5,  6,  6,  7,  4, // bottom
-            8,    9, 10, 10, 11,  8, // right
-            12,  13, 14, 14, 15, 12, // left
-            16,  17, 18, 18, 19, 16, // front
-            20,  21, 22, 22, 23, 20, // back
-        ];
+    pub fn new(device: &wgpu::Device, mesh_type: &ParticleMeshType) -> Self {
+        let (vertices, indices) = match mesh_type {
+            ParticleMeshType::Custom(path) => {
+                (vec![], vec![])
+            }
+            ParticleMeshType::Cube => {
+                (vec![
+                    // top (0, 0, 1)
+                    Vertex { position: [-1.0, -1.0,  1.0], tex_coords: [0.0, 0.0], normal: [0.0, 1.0, 0.0] },
+                    Vertex { position: [ 1.0, -1.0,  1.0], tex_coords: [1.0, 0.0], normal: [0.0, 1.0, 0.0] },
+                    Vertex { position: [ 1.0,  1.0,  1.0], tex_coords: [1.0, 1.0], normal: [0.0, 1.0, 0.0] },
+                    Vertex { position: [-1.0,  1.0,  1.0], tex_coords: [0.0, 1.0], normal: [0.0, 1.0, 0.0] },
+                    // bottom (0, 0, -1)
+                    Vertex { position: [-1.0,  1.0, -1.0], tex_coords: [1.0, 0.0], normal: [0.0, 1.0, 0.0] },
+                    Vertex { position: [ 1.0,  1.0, -1.0], tex_coords: [0.0, 0.0], normal: [0.0, 1.0, 0.0] },
+                    Vertex { position: [ 1.0, -1.0, -1.0], tex_coords: [0.0, 1.0], normal: [0.0, 1.0, 0.0] },
+                    Vertex { position: [-1.0, -1.0, -1.0], tex_coords: [1.0, 1.0], normal: [0.0, 1.0, 0.0] },
+                    // right (1, 0, 0)
+                    Vertex { position: [ 1.0, -1.0, -1.0], tex_coords: [0.0, 0.0], normal: [0.0, 1.0, 0.0] },
+                    Vertex { position: [ 1.0,  1.0, -1.0], tex_coords: [1.0, 0.0], normal: [0.0, 1.0, 0.0] },
+                    Vertex { position: [ 1.0,  1.0,  1.0], tex_coords: [1.0, 1.0], normal: [0.0, 1.0, 0.0] },
+                    Vertex { position: [ 1.0, -1.0,  1.0], tex_coords: [0.0, 1.0], normal: [0.0, 1.0, 0.0] },
+                    // left (-1, 0, 0)
+                    Vertex { position: [-1.0, -1.0,  1.0], tex_coords: [1.0, 0.0], normal: [0.0, 1.0, 0.0] },
+                    Vertex { position: [-1.0,  1.0,  1.0], tex_coords: [0.0, 0.0], normal: [0.0, 1.0, 0.0] },
+                    Vertex { position: [-1.0,  1.0, -1.0], tex_coords: [0.0, 1.0], normal: [0.0, 1.0, 0.0] },
+                    Vertex { position: [-1.0, -1.0, -1.0], tex_coords: [1.0, 1.0], normal: [0.0, 1.0, 0.0] },
+                    // front (0, 1, 0)
+                    Vertex { position: [ 1.0,  1.0, -1.0], tex_coords: [1.0, 0.0], normal: [0.0, 1.0, 0.0] },
+                    Vertex { position: [-1.0,  1.0, -1.0], tex_coords: [0.0, 0.0], normal: [0.0, 1.0, 0.0] },
+                    Vertex { position: [-1.0,  1.0,  1.0], tex_coords: [0.0, 1.0], normal: [0.0, 1.0, 0.0] },
+                    Vertex { position: [ 1.0,  1.0,  1.0], tex_coords: [1.0, 1.0], normal: [0.0, 1.0, 0.0] },
+                    // back (0, -1, 0)
+                    Vertex { position: [ 1.0, -1.0,  1.0], tex_coords: [0.0, 0.0], normal: [0.0, 1.0, 0.0] },
+                    Vertex { position: [-1.0, -1.0,  1.0], tex_coords: [1.0, 0.0], normal: [0.0, 1.0, 0.0] },
+                    Vertex { position: [-1.0, -1.0, -1.0], tex_coords: [1.0, 1.0], normal: [0.0, 1.0, 0.0] },
+                    Vertex { position: [ 1.0, -1.0, -1.0], tex_coords: [0.0, 1.0], normal: [0.0, 1.0, 0.0] },
+                ],
+                vec![
+                    0u16, 1,  2,  2,  3,  0, // top
+                    4,    5,  6,  6,  7,  4, // bottom
+                    8,    9, 10, 10, 11,  8, // right
+                    12,  13, 14, 14, 15, 12, // left
+                    16,  17, 18, 18, 19, 16, // front
+                    20,  21, 22, 22, 23, 20, // back
+                ])
+            }
+        };
+
+        let vbuf = device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Particle Vertex Buffer"),
+                contents: bytemuck::cast_slice(&vertices),
+                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            }
+        );
+    
+        let ibuf = device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Particle Index Buffer"),
+                contents: bytemuck::cast_slice(&indices),
+                usage: wgpu::BufferUsages::INDEX,
+            }
+        );
+    
         Self {
-            vertices, indices,
+            vertices, indices, ibuf, vbuf,
         }
-    }
-}
-impl Default for ParticleMesh {
-    fn default() -> Self {
-        Self::cube()
     }
 }
 
