@@ -1,5 +1,5 @@
 use std::ops::Range;
-use cgmath::{Vector3, Vector4};
+use cgmath::{Vector3, Vector4, Quaternion};
 
 /// Constant for converting u64 numbers to f64s in [0,1).
 /// It is the maximum value of mantissa plus one.
@@ -39,6 +39,14 @@ impl Randf32 {
     }
     pub fn vec4_in_range(&mut self, ranges: &[Range<f32>; 4]) -> Vector4<f32> {
         Vector4::new(
+            self.in_range(&ranges[0]),
+            self.in_range(&ranges[1]),
+            self.in_range(&ranges[2]),
+            self.in_range(&ranges[3]),
+        )
+    }
+    pub fn quat_in_range(&mut self, ranges: &[Range<f32>; 4]) -> Quaternion<f32> {
+        Quaternion::new(
             self.in_range(&ranges[0]),
             self.in_range(&ranges[1]),
             self.in_range(&ranges[2]),

@@ -93,9 +93,9 @@ impl ParticleSystem {
     /// Create new particle 
     fn new_particle(&mut self) -> Particle {
         Particle {
-            pos,    self.rand.vec3_in_range(&self.bounds.spawn_range)
+            pos:    self.rand.vec3_in_range(&self.bounds.spawn_range),
             vel:    self.rand.vec3_in_range(&self.bounds.init_vel), 
-            rot:    Quaternion::new(0.0, 0.0, 0.0, 0.0), 
+            rot:    self.rand.quat_in_range(&self.bounds.rot), 
             color:  self.rand.vec4_in_range(&self.bounds.color),
             scale:  self.rand.in_range(&self.bounds.scale),
             life:   self.rand.in_range(&self.bounds.life), 
@@ -179,7 +179,7 @@ impl ParticleSystem {
         self.bounds.init_vel = init_vel;
     }
     /// Set dimensions of area in which particles spawn.
-    pub fn set_spawn_range(&mut self, spawn_range: SpawnRange) {
+    pub fn set_spawn_range(&mut self, spawn_range: [Range<f32>; 3]) {
         self.bounds.spawn_range = spawn_range;
     }
     /// Set minimum and maximum particle lifetimes.
@@ -225,6 +225,7 @@ impl Default for ParticleSystemDescriptor {
 pub struct ParticleSystemBounds {
     pub spawn_range: [Range<f32>; 3],
     pub init_vel:    [Range<f32>; 3],
+    pub rot:         [Range<f32>; 4],
     pub color:       [Range<f32>; 4],
     pub life:        Range<f32>,
     pub weight:      Range<f32>,
@@ -236,6 +237,7 @@ impl Default for ParticleSystemBounds {
             spawn_range: [0.0..0.0, 0.0..0.0, 0.0..0.0],
             life:        1.0..10.0,
             init_vel:    [-0.2..0.2, 0.5..1.0, -0.2..0.2],
+            rot:         [-0.5..0.5, -0.5..0.5, -0.5..0.5, -0.5..0.5],
             color:       [0.0..1.0, 0.0..1.0, 0.0..1.0, 0.0..1.0],
             weight:      0.1..1.0,
             scale:       0.005..0.010,
