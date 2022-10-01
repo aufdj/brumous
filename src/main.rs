@@ -1,5 +1,6 @@
 use std::time::Instant;
-use std::io::{self, Write};
+use std::io::{self, Write, Read};
+use std::path::Path;
 
 use winit::{
     event::*,
@@ -12,10 +13,8 @@ use brumous::texture::{Texture, DepthTexture};
 use brumous::gpu::Gpu;
 use brumous::delta::Delta;
 use brumous::particle::*;
-use brumous::model::{Vertex, VertexLayout};
+use brumous::bufio::new_input_file;
 
-use brumous::ParticleSystem;
-use brumous::ParticleSystemDescriptor;
 use brumous::CreateParticleSystem;
 use brumous::DrawParticleSystem;
 
@@ -26,9 +25,11 @@ fn main() {
 struct State {
     gpu: Gpu,
     camera: Camera,
-    system: ParticleSystem,
+    system: brumous::ParticleSystem,
     depth_texture: DepthTexture,
     delta: Delta,
+    texture: Texture,
+    pipeline: wgpu::RenderPipeline,
 }
 impl State {
     // Creating some of the wgpu types requires async code
@@ -36,24 +37,46 @@ impl State {
         let gpu = Gpu::init(&window).await;
         let camera = Camera::new(&gpu.config, &gpu.device);
         let depth_texture = DepthTexture::new(&gpu.device, &gpu.config, "Depth Texture");
+        let texture = Texture::new(&gpu.device, &gpu.queue, Path::new("image/fire.jpg")).unwrap();
+
+        let system = gpu.device.create_particle_system(
+            &brumous::ParticleSystemDescriptor {
+                bounds: brumous::ParticleSystemBounds {
+                    spawn_range: [0.0..0.0, 0.0..0.0, 0.0..0.0],
+                    life:        1.0..10.0,
+                    init_vel:    [-0.2..0.2, 0.05..0.1, -0.2..0.2],
+                    rot:         [0.0..0.0, 0.0..0.0, 0.0..0.0, 0.0..0.0],
+                    color:       [0.0..1.0, 0.0..1.0, 0.0..1.0, 0.0..1.0],
+                    mass:        0.1..0.5,
+                    scale:       0.005..0.010,
+                },
+                max: 5000,
+                rate: 10,
+                ..Default::default()
+            },
+        );
         
+        let mut shader_str = String::new();
+        new_input_file(Path::new("src/particle.wgsl")).unwrap().read_to_string(&mut shader_str).unwrap();
         let shader = gpu.device.create_shader_module(
             wgpu::ShaderModuleDescriptor {
                 label: Some("Shader"),
-                source: wgpu::ShaderSource::Wgsl(include_str!("particle.wgsl").into()),
+                source: wgpu::ShaderSource::Wgsl(shader_str.into()),
             }
         );
 
         let pipeline_layout = gpu.device.create_pipeline_layout(
             &wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[&camera.bind_layout],
+                bind_group_layouts: &[
+                    &camera.bind_layout,
+                    &texture.bind_layout,
+                ],
                 push_constant_ranges: &[],
             }
         );
 
-        let system = gpu.device.create_particle_system(
-            ParticleSystemDescriptor::default(),
+        let pipeline = gpu.device.create_render_pipeline(
             &wgpu::RenderPipelineDescriptor {
                 label: Some("Render Pipeline"),
                 layout: Some(&pipeline_layout),
@@ -61,19 +84,19 @@ impl State {
                     module: &shader,
                     entry_point: "vs_main",
                     buffers: &[
-                        Vertex::layout(),
-                        ParticleRaw::layout(),
+                        ParticleVertex::layout(),
+                        ParticleModel::layout(),
                     ],
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &shader,
-                    entry_point: "fs_color",
+                    entry_point: "fs_texture",
                     targets: &[
                         Some(wgpu::ColorTargetState {
                             format: gpu.config.format,
                             blend: Some(wgpu::BlendState::REPLACE),
                             write_mask: wgpu::ColorWrites::ALL,
-                        })
+                        }),
                     ],
                 }),
                 primitive: wgpu::PrimitiveState {
@@ -107,6 +130,8 @@ impl State {
             depth_texture,
             system,
             delta: Delta::new(),
+            texture,
+            pipeline,
         }
     }
 
@@ -146,7 +171,7 @@ impl State {
                             ),
                             store: true,
                         },
-                    })
+                    }),
                 ],
                 depth_stencil_attachment: Some(wgpu::RenderPassDepthStencilAttachment {
                     view: &self.depth_texture.view,
@@ -159,7 +184,7 @@ impl State {
             }
         );
 
-        rpass.draw_particle_system(&self.system, &[&self.camera.bind_group]);
+        rpass.draw_particle_system(&self.system, &self.pipeline, &[&self.camera.bind_group, &self.texture.bind_group]);
         
         drop(rpass);
 
@@ -184,7 +209,9 @@ pub async fn run() {
         match event {
             Event::NewEvents(StartCause::Poll) => {
                 state.delta.update(Instant::now());
-                stdout.write_fmt(format_args!("\rframetime: {:?}  ", state.delta.frame_time())).unwrap();
+                stdout.write_fmt(
+                    format_args!("\rframetime: {:?}  ", state.delta.frame_time())
+                ).unwrap();
             }
             Event::WindowEvent { ref event, window_id, } if window_id == window.id() => {
                 if !state.input(event) {

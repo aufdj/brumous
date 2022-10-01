@@ -60,18 +60,24 @@ fn fs_color(in: VertexOutput) -> @location(0) vec4<f32> {
     return in.color;
 }
 
-// @fragment
-// fn fs_texture(in: VertexOutput) -> @location(0) vec4<f32> {
-//     let obj_col: vec4<f32> = textureSample(t_diffuse, s_diffuse, in.tex_coords);
+@group(1) @binding(0)
+var tx: texture_2d<f32>;
+@group(1) @binding(1)
+var smpl: sampler;
 
-//     let ambient_strength = 0.4;
-//     let ambient_color = light.color * ambient_strength;
+@fragment
+fn fs_texture(in: VertexOutput) -> @location(0) vec4<f32> {
+    return textureSample(tx, smpl, in.tex_coords);
+    // let obj_col: vec4<f32> = textureSample(texture, sampler, in.tex_coords);
 
-//     let light_dir = normalize(light.pos - in.world_pos);
-//     let diffuse_strength = max(dot(in.world_normal, light_dir), 0.0);
-//     let diffuse_color = light.color * diffuse_strength;
+    // let ambient_strength = 0.4;
+    // let ambient_color = light.color * ambient_strength;
 
-//     let result = (ambient_color + diffuse_color) * obj_col.xyz;
+    // let light_dir = normalize(light.pos - in.world_pos);
+    // let diffuse_strength = max(dot(in.world_normal, light_dir), 0.0);
+    // let diffuse_color = light.color * diffuse_strength;
 
-//     return vec4<f32>(result, obj_col.a);
-// }
+    // let result = (ambient_color + diffuse_color) * obj_col.xyz;
+
+    // return vec4<f32>(result, obj_col.a);
+}

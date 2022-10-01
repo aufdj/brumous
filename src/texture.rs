@@ -1,3 +1,8 @@
+use std::path::Path;
+use std::io::Read;
+
+use crate::bufio::new_input_file;
+
 use image::{ImageError, GenericImageView};
 
 pub struct Texture {
@@ -10,8 +15,11 @@ pub struct Texture {
 impl Texture {
     pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, bytes: &[u8], label: Option<&str>) -> Result<Self, ImageError> {
-        let img = image::load_from_memory(bytes)?;
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, path: &Path) -> Result<Self, ImageError> {
+        let mut texture_data = Vec::new();
+        new_input_file(path).unwrap().read_to_end(&mut texture_data).unwrap();
+
+        let img = image::load_from_memory(&texture_data)?;
 
         let rgba = img.to_rgba8();
         let dimensions = img.dimensions();
@@ -23,7 +31,7 @@ impl Texture {
         };
         let texture = device.create_texture(
             &wgpu::TextureDescriptor {
-                label,
+                label: None,
                 size,
                 mip_level_count: 1,
                 sample_count: 1,
@@ -49,7 +57,12 @@ impl Texture {
             size,
         );
 
-        let view = texture.create_view(&wgpu::TextureViewDescriptor::default());
+        let view = texture.create_view(
+            &wgpu::TextureViewDescriptor {
+                dimension: Some(wgpu::TextureViewDimension::D2),
+                ..Default::default()
+            }
+        );
         let sampler = device.create_sampler(
             &wgpu::SamplerDescriptor {
                 address_mode_u: wgpu::AddressMode::ClampToEdge,
@@ -64,15 +77,15 @@ impl Texture {
 
         let bind_layout = device.create_bind_group_layout(
             &wgpu::BindGroupLayoutDescriptor {
-                label: Some("texture_bind_group_layout"),
+                label: Some("Bind Group Layout"),
                 entries: &[
                     wgpu::BindGroupLayoutEntry {
                         binding: 0,
                         visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Texture {
-                            sample_type: wgpu::TextureSampleType::Float { filterable: true, },
-                            multisampled: false,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
                             view_dimension: wgpu::TextureViewDimension::D2,
+                            multisampled: false,
                         },
                         count: None,
                     },
@@ -81,8 +94,8 @@ impl Texture {
                         visibility: wgpu::ShaderStages::FRAGMENT,
                         ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
                         count: None,
-                    },
-                ],
+                    }
+                ]
             }
         );
 
