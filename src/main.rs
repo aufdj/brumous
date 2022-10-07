@@ -1,6 +1,6 @@
 use std::time::Instant;
 use std::io::{self, Write, Read};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use winit::{
     event::*,
@@ -50,8 +50,9 @@ impl State {
                     mass:        0.1..0.5,
                     scale:       0.005..0.010,
                 },
-                max: 5000,
-                rate: 10,
+                max: 500,
+                rate: 3,
+                mesh_type: brumous::ParticleMeshType::Custom(PathBuf::from("obj/cube_indexed_with_normals.obj")),
                 ..Default::default()
             },
         );
@@ -85,7 +86,7 @@ impl State {
                     entry_point: "vs_main",
                     buffers: &[
                         ParticleVertex::layout(),
-                        ParticleModel::layout(),
+                        ParticleInstance::layout(),
                     ],
                 },
                 fragment: Some(wgpu::FragmentState {

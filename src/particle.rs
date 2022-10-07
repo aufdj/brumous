@@ -1,17 +1,21 @@
 use std::mem;
+use std::io::BufRead;
 
 use cgmath::{Vector3, Vector4, Matrix3, Matrix4, Quaternion};
 use bytemuck;
 use wgpu::util::DeviceExt;
 
 use crate::ParticleMeshType;
+use crate::bufio::new_input_file;
+use crate::obj::ReadObjFile;
+
 
 pub trait ToRaw {
-    fn to_raw(&self) -> Vec<ParticleModel>;
+    fn to_raw(&self) -> Vec<ParticleInstance>;
 }
 impl ToRaw for Vec<Particle> {
-    fn to_raw(&self) -> Vec<ParticleModel> {
-        self.iter().map(Particle::to_raw).collect::<Vec<ParticleModel>>()
+    fn to_raw(&self) -> Vec<ParticleInstance> {
+        self.iter().map(Particle::to_raw).collect::<Vec<ParticleInstance>>()
     }
 }
 
@@ -34,8 +38,8 @@ impl Particle {
         self.vel += Vector3::new(0.0, gravity * self.mass, 0.0) * delta * 0.5;
         self.pos += self.vel * delta;
     }
-    pub fn to_raw(&self) -> ParticleModel {
-        ParticleModel {
+    pub fn to_raw(&self) -> ParticleInstance {
+        ParticleInstance {
             model: (
                 Matrix4::from_translation(self.pos) *
                 Matrix4::from(self.rot) *
@@ -62,12 +66,12 @@ impl Default for Particle {
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct ParticleModel {
+pub struct ParticleInstance {
     model:  [[f32; 4]; 4],
     normal: [[f32; 3]; 3],
     color:  [f32; 4],
 }
-impl ParticleModel {
+impl ParticleInstance {
     pub fn size() -> u64 {
         mem::size_of::<Self>() as u64
     }
@@ -77,7 +81,7 @@ impl ParticleModel {
        12 => Float32x4
     ];
 }
-impl VertexLayout for ParticleModel {
+impl VertexLayout for ParticleInstance {
     fn layout() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
             array_stride: mem::size_of::<Self>() as wgpu::BufferAddress,
@@ -88,7 +92,7 @@ impl VertexLayout for ParticleModel {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, Debug, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Copy, Clone, Debug, Default, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct ParticleVertex {
     pub position: [f32; 3],
     pub tex_coords: [f32; 2],
@@ -109,7 +113,6 @@ impl VertexLayout for ParticleVertex {
     }
 }
 
-
 pub struct ParticleMesh {
     pub vertex_buf:   wgpu::Buffer,
     pub index_buf:    Option<wgpu::Buffer>,
@@ -120,27 +123,33 @@ impl ParticleMesh {
     pub fn new(device: &wgpu::Device, mesh_type: &ParticleMeshType) -> Self {
         match mesh_type {
             ParticleMeshType::Custom(path) => {
-                let vertices: Vec<ParticleVertex> = vec![];
-                let indices: Vec<u16> = vec![];
-
-                let vertex_count = vertices.len() as u32;
-                let index_count = indices.len() as u32;
+                let mut file = new_input_file(path).unwrap();
+                let obj = file.read_obj();
+                
+                let vertex_count = obj.vertices.len() as u32;
+                let index_count = obj.indices.len() as u32;
 
                 let vertex_buf = device.create_buffer_init(
                     &wgpu::util::BufferInitDescriptor {
                         label: Some("Particle Vertex Buffer"),
-                        contents: bytemuck::cast_slice(&vertices),
+                        contents: bytemuck::cast_slice(&obj.vertices),
                         usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                     }
                 );
     
-                let index_buf = Some(device.create_buffer_init(
-                    &wgpu::util::BufferInitDescriptor {
-                        label: Some("Particle Index Buffer"),
-                        contents: bytemuck::cast_slice(&indices),
-                        usage: wgpu::BufferUsages::INDEX,
+                let index_buf = 
+                    if index_count > 0 {
+                        Some(device.create_buffer_init(
+                            &wgpu::util::BufferInitDescriptor {
+                                label: Some("Particle Index Buffer"),
+                                contents: bytemuck::cast_slice(&obj.indices),
+                                usage: wgpu::BufferUsages::INDEX,
+                            }
+                        ))
                     }
-                ));
+                    else {
+                        None
+                    };
     
                 Self {
                     vertex_buf, index_buf, vertex_count, index_count

@@ -6,6 +6,7 @@ pub mod vec;
 pub mod gpu;
 pub mod delta;
 pub mod bufio;
+pub mod obj;
 
 use std::num::NonZeroU64;
 use std::path::{Path, PathBuf};
@@ -58,7 +59,7 @@ impl ParticleSystem {
             search_pos:    0,
             particle_rate: sys_desc.rate,
             position:      sys_desc.pos,
-            name:          sys_desc.name.clone(),
+            name:          sys_desc.name.to_string(),
             life:          sys_desc.life,
             gravity:       sys_desc.gravity,
             bounds:        sys_desc.bounds.clone(),
@@ -110,7 +111,7 @@ impl ParticleSystem {
                 particle.update(delta, self.gravity);
                 queue.write_buffer(
                     &self.particle_buf,
-                    index as u64 * ParticleModel::size(),
+                    index as u64 * ParticleInstance::size(),
                     bytemuck::cast_slice(&[particle.to_raw()])
                 );
             }
@@ -133,7 +134,7 @@ impl ParticleSystem {
     }
     /// Return particle buffer size in bytes.
     pub fn particle_buf_size(&self) -> Option<NonZeroU64> {
-        NonZeroU64::new(self.particles.len() as u64 * ParticleModel::size())
+        NonZeroU64::new(self.particles.len() as u64 * ParticleInstance::size())
     }
     /// Set max number of particles.
     pub fn set_max_particles(&mut self, max: usize, device: &wgpu::Device) {
@@ -189,24 +190,24 @@ impl ParticleSystem {
 }
 
 /// Describes characteristics of a particle system.
-pub struct ParticleSystemDescriptor {
+pub struct ParticleSystemDescriptor<'a> {
     pub mesh_type: ParticleMeshType,
     pub max:       usize,
     pub rate:      usize,
     pub pos:       Vector3<f32>,
-    pub name:      String,
+    pub name:      &'a str,
     pub life:      f32,
     pub gravity:   f32,
     pub bounds:    ParticleSystemBounds,
 }
-impl Default for ParticleSystemDescriptor {
+impl<'a> Default for ParticleSystemDescriptor<'a> {
     fn default() -> Self {
         Self {
             mesh_type: ParticleMeshType::default(),
             max:       500,
             rate:      3,
             pos:       Vector3::new(0.0, 0.0, 0.0),
-            name:      String::from("Particle System"),
+            name:      "Particle System",
             life:      5.0,
             gravity:   -9.81,
             bounds:    ParticleSystemBounds::default(),
