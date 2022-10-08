@@ -1,7 +1,11 @@
 use std::io::{BufRead, BufReader};
 use std::fs::File;
+use std::path::Path;
 
-use crate::particle::ParticleVertex;
+use wgpu::util::DeviceExt;
+
+use crate::particle::{ParticleMesh, ParticleVertex};
+use crate::bufio::new_input_file;
   
 enum Vertex {
     Position,
@@ -33,90 +37,110 @@ fn f32x2(vec: &mut Vec<f32>) -> [f32; 2] {
     a
 }
 
+pub fn read_obj(device: &wgpu::Device, path: &Path) -> ParticleMesh {
+    let mut file = new_input_file(path).unwrap();
 
-pub struct ObjFile {
-    pub vertices: Vec<ParticleVertex>,
-    pub indices: Vec<u16>,
-}
+    let mut vertices = Vec::<ParticleVertex>::new();
+    let mut indices = Vec::<u16>::new();
 
-pub trait ReadObjFile {
-    fn read_obj(&mut self) -> ObjFile;
-}
-impl ReadObjFile for BufReader<File> {
-    fn read_obj(&mut self) -> ObjFile {
-        let mut vertices: Vec<ParticleVertex> = Vec::new();
-        let mut indices: Vec<u16> = Vec::new();
+    let mut v  = Vec::<[f32; 3]>::new(); // Positions
+    let mut vt = Vec::<[f32; 2]>::new(); // Texture coordinates
+    let mut vn = Vec::<[f32; 3]>::new(); // Normals
 
-        let mut v  = Vec::<[f32; 3]>::new(); // Positions
-        let mut vt = Vec::<[f32; 2]>::new(); // Texture coordinates
-        let mut vn = Vec::<[f32; 3]>::new(); // Normals
-        let mut line = String::new(); // Current line of obj file
-        let mut floats = Vec::new();
+    let mut line = String::new(); // Current line of obj file
+    let mut floats = Vec::new();
+    let mut num = String::new();
 
-        while self.read_line(&mut line).unwrap() != 0 {
-            let mut string = line.split_whitespace();
-            match string.next() {
-                Some("v") => {
-                    while let Some(s) = string.next() {
-                        let f = s.parse::<f32>().unwrap();
-                        floats.push(f);
-                    }
-                    v.push(f32x3(&mut floats));
+    while file.read_line(&mut line).unwrap() != 0 {
+        let mut string = line.split_whitespace();
+        match string.next() {
+            Some("v") => {
+                while let Some(s) = string.next() {
+                    let f = s.parse::<f32>().unwrap();
+                    floats.push(f);
                 }
-                Some("vt") => {
-                    while let Some(s) = string.next() {
-                        let f = s.parse::<f32>().unwrap();
-                        floats.push(f);
-                    }
-                    vt.push(f32x2(&mut floats));
+                v.push(f32x3(&mut floats));
+            }
+            Some("vt") => {
+                while let Some(s) = string.next() {
+                    let f = s.parse::<f32>().unwrap();
+                    floats.push(f);
                 }
-                Some("vn") => {
-                    while let Some(s) = string.next() {
-                        let f = s.parse::<f32>().unwrap();
-                        floats.push(f);
-                    }
-                    vn.push(f32x3(&mut floats));
+                vt.push(f32x2(&mut floats));
+            }
+            Some("vn") => {
+                while let Some(s) = string.next() {
+                    let f = s.parse::<f32>().unwrap();
+                    floats.push(f);
                 }
-                Some("f") => {
-                    while let Some(s) = string.next() {
-                        let mut parse = Vertex::Position;
-                        let mut vertex = ParticleVertex::default();
-                        let mut num = String::new();
-                        for c in s.chars() {
-                            if c == '/' {
-                                if let Ok(n) = num.parse::<i32>() {
-                                    let i = n as usize - 1;
-                                    match parse {
-                                        Vertex::Position => {
-                                            vertex.position = v[i];
-                                        }
-                                        Vertex::TexCoords => {
-                                            vertex.tex_coords = vt[i];
-                                        }
-                                        Vertex::Normal => {
-                                            vertex.normal = vn[i];
-                                        }
+                vn.push(f32x3(&mut floats));
+            }
+            Some("f") => {
+                while let Some(s) = string.next() {
+                    let mut parse = Vertex::Position;
+                    let mut vertex = ParticleVertex::default();
+                    for c in s.chars() {
+                        if c == '/' {
+                            if let Ok(n) = num.parse::<i32>() {
+                                let i = n as usize - 1;
+                                match parse {
+                                    Vertex::Position => {
+                                        vertex.position = v[i];
                                     }
-                                    num.clear();
+                                    Vertex::TexCoords => {
+                                        vertex.tex_coords = vt[i];
+                                    }
+                                    Vertex::Normal => {
+                                        vertex.normal = vn[i];
+                                    }
                                 }
-                                else {
-                                    panic!("Error");
-                                }
-                                parse.next();
                             }
                             else {
-                                num.push(c);
+                                panic!("Error");
                             }
+                            parse.next();
+                            num.clear();
                         }
-                        vertices.push(vertex);
+                        else {
+                            num.push(c);
+                        }
                     }
+                    vertices.push(vertex);
+                    num.clear();
                 }
-                _ => {}
             }
-            line.clear();
-            floats.clear();
+            _ => {}
         }
-        ObjFile { vertices, indices }
+        line.clear();
+        floats.clear();
+    }
+
+    let vertex_count = vertices.len() as u32;
+    let index_count = indices.len() as u32;
+
+    let vertex_buf = device.create_buffer_init(
+        &wgpu::util::BufferInitDescriptor {
+            label: Some("Particle Vertex Buffer"),
+            contents: bytemuck::cast_slice(&vertices),
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+        }
+    );
+    
+    let index_buf = if index_count > 0 {
+        Some(device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Particle Index Buffer"),
+                contents: bytemuck::cast_slice(&indices),
+                usage: wgpu::BufferUsages::INDEX,
+            }
+        ))
+    }
+    else {
+        None
+    };
+
+    ParticleMesh { 
+        vertex_buf, index_buf, vertex_count, index_count 
     }
 }
                 

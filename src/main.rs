@@ -52,7 +52,7 @@ impl State {
                 },
                 max: 500,
                 rate: 3,
-                mesh_type: brumous::ParticleMeshType::Custom(PathBuf::from("obj/cube_indexed_with_normals.obj")),
+                mesh_type: brumous::ParticleMeshType::Custom(PathBuf::from("obj/cube.obj")),
                 ..Default::default()
             },
         );

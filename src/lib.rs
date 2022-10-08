@@ -215,15 +215,14 @@ impl<'a> Default for ParticleSystemDescriptor<'a> {
     }
 }
 
-/// Defines model of each particle. Can be a 
-/// preset model or loaded from .obj file.
+/// Defines model of each particle.
 #[derive(Default)]
 pub enum ParticleMeshType {
-    Cube,
     #[default]
-    CubeIndexed,
+    Cube,
     Custom(PathBuf),
 }
+
 
 /// Describes the range of possible values 
 /// of a particle's traits.
