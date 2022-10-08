@@ -9,6 +9,7 @@ use wgpu::util::DeviceExt;
 use crate::ParticleMeshType;
 use crate::bufio::new_input_file;
 use crate::obj::read_obj;
+use crate::error::BrumousResult;
 
 
 pub trait ToRaw {
@@ -121,7 +122,7 @@ pub struct ParticleMesh {
     pub index_count:  u32,
 }
 impl ParticleMesh {
-    pub fn new(device: &wgpu::Device, mesh_type: &ParticleMeshType) -> Self {
+    pub fn new(device: &wgpu::Device, mesh_type: &ParticleMeshType) -> BrumousResult<Self> {
         match mesh_type {
             ParticleMeshType::Custom(path) => {
                 read_obj(device, &path)

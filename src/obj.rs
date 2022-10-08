@@ -6,6 +6,7 @@ use wgpu::util::DeviceExt;
 
 use crate::particle::{ParticleMesh, ParticleVertex};
 use crate::bufio::new_input_file;
+use crate::error::BrumousResult;
   
 enum Vertex {
     Position,
@@ -37,8 +38,8 @@ fn f32x2(vec: &mut Vec<f32>) -> [f32; 2] {
     a
 }
 
-pub fn read_obj(device: &wgpu::Device, path: &Path) -> ParticleMesh {
-    let mut file = new_input_file(path).unwrap();
+pub fn read_obj(device: &wgpu::Device, path: &Path) -> BrumousResult<ParticleMesh> {
+    let mut file = new_input_file(path)?;
 
     let mut vertices = Vec::<ParticleVertex>::new();
     let mut indices = Vec::<u16>::new();
@@ -51,7 +52,7 @@ pub fn read_obj(device: &wgpu::Device, path: &Path) -> ParticleMesh {
     let mut floats = Vec::new();
     let mut num = String::new();
 
-    while file.read_line(&mut line).unwrap() != 0 {
+    while file.read_line(&mut line)? != 0 {
         let mut string = line.split_whitespace();
         match string.next() {
             Some("v") => {
@@ -139,8 +140,13 @@ pub fn read_obj(device: &wgpu::Device, path: &Path) -> ParticleMesh {
         None
     };
 
-    ParticleMesh { 
-        vertex_buf, index_buf, vertex_count, index_count 
-    }
+    Ok(
+        ParticleMesh { 
+            vertex_buf, 
+            index_buf, 
+            vertex_count, 
+            index_count 
+        }
+    )
 }
                 

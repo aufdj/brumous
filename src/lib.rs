@@ -7,6 +7,7 @@ pub mod gpu;
 pub mod delta;
 pub mod bufio;
 pub mod obj;
+pub mod error;
 
 use std::num::NonZeroU64;
 use std::path::{Path, PathBuf};
@@ -16,6 +17,7 @@ use crate::particle::*;
 use crate::texture::Texture;
 use crate::gpu::Gpu;
 use crate::random::Randf32;
+use crate::error::BrumousResult;
 
 use wgpu::util::DeviceExt;
 use cgmath::Vector3;
@@ -39,9 +41,9 @@ impl ParticleSystem {
     pub fn new(
         device: &wgpu::Device,
         sys_desc: &ParticleSystemDescriptor, 
-    ) -> Self {
+    ) -> BrumousResult<Self> {
         let particles = vec![Particle::default(); sys_desc.max];
-        let mesh = ParticleMesh::new(device, &sys_desc.mesh_type);
+        let mesh = ParticleMesh::new(device, &sys_desc.mesh_type)?;
 
         let particle_buf = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
@@ -51,20 +53,22 @@ impl ParticleSystem {
             }
         );
 
-        Self {
-            particles,
-            particle_buf,
-            mesh,
-            texture:       None,
-            search_pos:    0,
-            particle_rate: sys_desc.rate,
-            position:      sys_desc.pos,
-            name:          sys_desc.name.to_string(),
-            life:          sys_desc.life,
-            gravity:       sys_desc.gravity,
-            bounds:        sys_desc.bounds.clone(),
-            rand:          Randf32::new(),
-        }
+        Ok(
+            Self {
+                particles,
+                particle_buf,
+                mesh,
+                texture:       None,
+                search_pos:    0,
+                particle_rate: sys_desc.rate,
+                position:      sys_desc.pos,
+                name:          sys_desc.name.to_string(),
+                life:          sys_desc.life,
+                gravity:       sys_desc.gravity,
+                bounds:        sys_desc.bounds.clone(),
+                rand:          Randf32::new(),
+            }
+        )
     }
     fn find_unused_particle(&mut self) -> usize {
         for i in self.search_pos..self.particles.len() {
@@ -255,13 +259,13 @@ pub trait CreateParticleSystem {
     fn create_particle_system(
         &self, 
         desc: &ParticleSystemDescriptor, 
-    ) -> ParticleSystem;
+    ) -> BrumousResult<ParticleSystem>;
 }
 impl CreateParticleSystem for wgpu::Device {
     fn create_particle_system(
         &self, 
         desc: &ParticleSystemDescriptor,
-    ) -> ParticleSystem {
+    ) -> BrumousResult<ParticleSystem> {
         ParticleSystem::new(self, desc)
     }
 }

@@ -52,10 +52,9 @@ impl State {
                 },
                 max: 500,
                 rate: 3,
-                mesh_type: brumous::ParticleMeshType::Custom(PathBuf::from("obj/cube.obj")),
                 ..Default::default()
             },
-        );
+        ).unwrap();
         
         let mut shader_str = String::new();
         new_input_file(Path::new("src/particle.wgsl")).unwrap().read_to_string(&mut shader_str).unwrap();
