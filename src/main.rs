@@ -39,7 +39,7 @@ impl State {
         let depth_texture = DepthTexture::new(&gpu.device, &gpu.config, "Depth Texture");
         let texture = Texture::new(&gpu.device, &gpu.queue, Path::new("image/fire.jpg")).unwrap();
 
-        let system = gpu.device.create_particle_system(
+        let system = match gpu.device.create_particle_system(
             &brumous::ParticleSystemDescriptor {
                 bounds: brumous::ParticleSystemBounds {
                     spawn_range: [0.0..0.0, 0.0..0.0, 0.0..0.0],
@@ -54,10 +54,16 @@ impl State {
                 rate: 3,
                 ..Default::default()
             },
-        ).unwrap();
+        ) {
+            Ok(sys) => sys,
+            Err(e) => panic!("{e}"),
+        };
         
         let mut shader_str = String::new();
-        new_input_file(Path::new("src/particle.wgsl")).unwrap().read_to_string(&mut shader_str).unwrap();
+
+        new_input_file(Path::new("src/particle.wgsl")).unwrap()
+        .read_to_string(&mut shader_str).unwrap();
+
         let shader = gpu.device.create_shader_module(
             wgpu::ShaderModuleDescriptor {
                 label: Some("Shader"),

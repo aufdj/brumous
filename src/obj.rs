@@ -6,7 +6,7 @@ use wgpu::util::DeviceExt;
 
 use crate::particle::{ParticleMesh, ParticleVertex};
 use crate::bufio::new_input_file;
-use crate::error::BrumousResult;
+use crate::error::{BrumousResult, BrumousError};
   
 enum Vertex {
     Position,
@@ -23,14 +23,14 @@ impl Vertex {
     }
 }
 
-fn f32x3(vec: &mut Vec<f32>) -> [f32; 3] {
+fn f32x3(vec: &[f32]) -> [f32; 3] {
     let mut a = [0.0; 3];
     for i in 0..3 {
         a[i] = vec[i];
     }
     a
 }
-fn f32x2(vec: &mut Vec<f32>) -> [f32; 2] {
+fn f32x2(vec: &[f32]) -> [f32; 2] {
     let mut a = [0.0; 2];
     for i in 0..2 {
         a[i] = vec[i];
@@ -49,32 +49,61 @@ pub fn read_obj(device: &wgpu::Device, path: &Path) -> BrumousResult<ParticleMes
     let mut vn = Vec::<[f32; 3]>::new(); // Normals
 
     let mut line = String::new(); // Current line of obj file
-    let mut floats = Vec::new();
+    let mut linecount = 0usize;
+    let mut floats = Vec::new(); 
     let mut num = String::new();
 
     while file.read_line(&mut line)? != 0 {
+        linecount += 1;
         let mut string = line.split_whitespace();
         match string.next() {
             Some("v") => {
                 while let Some(s) = string.next() {
-                    let f = s.parse::<f32>().unwrap();
-                    floats.push(f);
+                    if let Ok(f) = s.parse::<f32>() {
+                        floats.push(f);
+                    }
+                    else {
+                        return Err(
+                            BrumousError::ObjParseError(
+                                path.to_path_buf(), 
+                                linecount
+                            )
+                        );
+                    }
                 }
-                v.push(f32x3(&mut floats));
+                v.push(f32x3(&floats));
             }
             Some("vt") => {
                 while let Some(s) = string.next() {
-                    let f = s.parse::<f32>().unwrap();
-                    floats.push(f);
+                    if let Ok(f) = s.parse::<f32>() {
+                        floats.push(f);
+                    }
+                    else {
+                        return Err(
+                            BrumousError::ObjParseError(
+                                path.to_path_buf(), 
+                                linecount
+                            )
+                        );
+                    }
                 }
-                vt.push(f32x2(&mut floats));
+                vt.push(f32x2(&floats));
             }
             Some("vn") => {
                 while let Some(s) = string.next() {
-                    let f = s.parse::<f32>().unwrap();
-                    floats.push(f);
+                    if let Ok(f) = s.parse::<f32>() {
+                        floats.push(f);
+                    }
+                    else {
+                        return Err(
+                            BrumousError::ObjParseError(
+                                path.to_path_buf(), 
+                                linecount
+                            )
+                        );
+                    }
                 }
-                vn.push(f32x3(&mut floats));
+                vn.push(f32x3(&floats));
             }
             Some("f") => {
                 while let Some(s) = string.next() {
@@ -97,7 +126,12 @@ pub fn read_obj(device: &wgpu::Device, path: &Path) -> BrumousResult<ParticleMes
                                 }
                             }
                             else {
-                                panic!("Error");
+                                return Err(
+                                    BrumousError::ObjParseError(
+                                        path.to_path_buf(), 
+                                        linecount
+                                    )
+                                );
                             }
                             parse.next();
                             num.clear();

@@ -70,7 +70,7 @@ fn fs_texture(in: VertexOutput) -> @location(0) vec4<f32> {
     return textureSample(tx, smpl, in.tex_coords);
     // let obj_col: vec4<f32> = textureSample(texture, sampler, in.tex_coords);
 
-    // let ambient_strength = 0.4;
+    // let ambient_strength = 0.1;
     // let ambient_color = light.color * ambient_strength;
 
     // let light_dir = normalize(light.pos - in.world_pos);
