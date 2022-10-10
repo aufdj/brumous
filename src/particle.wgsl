@@ -30,6 +30,12 @@ struct VertexOutput {
     @location(3) color: vec4<f32>,
 };
 
+
+@group(1) @binding(0)
+var tx: texture_2d<f32>;
+@group(1) @binding(1)
+var smpl: sampler;
+
 @vertex
 fn vs_main(vertex: VertexInput, particle: ParticleInput) -> VertexOutput {
     var out: VertexOutput;
@@ -60,10 +66,6 @@ fn fs_color(in: VertexOutput) -> @location(0) vec4<f32> {
     return in.color;
 }
 
-@group(1) @binding(0)
-var tx: texture_2d<f32>;
-@group(1) @binding(1)
-var smpl: sampler;
 
 @fragment
 fn fs_texture(in: VertexOutput) -> @location(0) vec4<f32> {

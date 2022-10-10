@@ -25,11 +25,9 @@ fn main() {
 struct State {
     gpu: Gpu,
     camera: Camera,
-    system: brumous::ParticleSystem,
+    system: brumous::particle_system::ParticleSystem,
     depth_texture: DepthTexture,
     delta: Delta,
-    texture: Texture,
-    pipeline: wgpu::RenderPipeline,
 }
 impl State {
     // Creating some of the wgpu types requires async code
@@ -37,11 +35,12 @@ impl State {
         let gpu = Gpu::init(&window).await;
         let camera = Camera::new(&gpu.config, &gpu.device);
         let depth_texture = DepthTexture::new(&gpu.device, &gpu.config, "Depth Texture");
-        let texture = Texture::new(&gpu.device, &gpu.queue, Path::new("image/fire.jpg")).unwrap();
 
-        let system = match gpu.device.create_particle_system(
-            &brumous::ParticleSystemDescriptor {
-                bounds: brumous::ParticleSystemBounds {
+        let system = match gpu.device.create_particle_system_with_renderer(
+            &gpu.config,
+            &gpu.queue,
+            &brumous::particle_system::ParticleSystemDescriptor {
+                bounds: brumous::particle_system::ParticleSystemBounds {
                     spawn_range: [0.0..0.0, 0.0..0.0, 0.0..0.0],
                     life:        1.0..10.0,
                     init_vel:    [-0.2..0.2, 0.05..0.1, -0.2..0.2],
@@ -52,83 +51,13 @@ impl State {
                 },
                 max: 500,
                 rate: 3,
+                texture: Path::new("image/fire.jpg"),
                 ..Default::default()
             },
         ) {
             Ok(sys) => sys,
             Err(e) => panic!("{e}"),
         };
-        
-        let mut shader_str = String::new();
-
-        new_input_file(Path::new("src/particle.wgsl")).unwrap()
-        .read_to_string(&mut shader_str).unwrap();
-
-        let shader = gpu.device.create_shader_module(
-            wgpu::ShaderModuleDescriptor {
-                label: Some("Shader"),
-                source: wgpu::ShaderSource::Wgsl(shader_str.into()),
-            }
-        );
-
-        let pipeline_layout = gpu.device.create_pipeline_layout(
-            &wgpu::PipelineLayoutDescriptor {
-                label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[
-                    &camera.bind_layout,
-                    &texture.bind_layout,
-                ],
-                push_constant_ranges: &[],
-            }
-        );
-
-        let pipeline = gpu.device.create_render_pipeline(
-            &wgpu::RenderPipelineDescriptor {
-                label: Some("Render Pipeline"),
-                layout: Some(&pipeline_layout),
-                vertex: wgpu::VertexState {
-                    module: &shader,
-                    entry_point: "vs_main",
-                    buffers: &[
-                        ParticleVertex::layout(),
-                        ParticleInstance::layout(),
-                    ],
-                },
-                fragment: Some(wgpu::FragmentState {
-                    module: &shader,
-                    entry_point: "fs_texture",
-                    targets: &[
-                        Some(wgpu::ColorTargetState {
-                            format: gpu.config.format,
-                            blend: Some(wgpu::BlendState::REPLACE),
-                            write_mask: wgpu::ColorWrites::ALL,
-                        }),
-                    ],
-                }),
-                primitive: wgpu::PrimitiveState {
-                    topology: wgpu::PrimitiveTopology::TriangleList,
-                    strip_index_format: None,
-                    front_face: wgpu::FrontFace::Ccw,
-                    cull_mode: Some(wgpu::Face::Back),
-                    polygon_mode: wgpu::PolygonMode::Fill,
-                    unclipped_depth: false,
-                    conservative: false,
-                },
-                depth_stencil: Some(wgpu::DepthStencilState {
-                    format: Texture::DEPTH_FORMAT,
-                    depth_write_enabled: true,
-                    depth_compare: wgpu::CompareFunction::Less,
-                    stencil: wgpu::StencilState::default(),
-                    bias: wgpu::DepthBiasState::default(),
-                }),
-                multisample: wgpu::MultisampleState {
-                    count: 1,
-                    mask: !0,
-                    alpha_to_coverage_enabled: false,
-                },
-                multiview: None,
-            }
-        );
 
         Self {
             gpu,
@@ -136,8 +65,6 @@ impl State {
             depth_texture,
             system,
             delta: Delta::new(),
-            texture,
-            pipeline,
         }
     }
 
@@ -155,6 +82,7 @@ impl State {
     fn update(&mut self, delta: f32) {
         self.camera.update(&self.gpu.queue);
         self.system.update(delta, &self.gpu.queue);
+        self.system.set_view_proj(&self.gpu.queue, self.camera.uniform.view_proj);
     }
 
     fn render(&mut self, view: &wgpu::TextureView) -> Result<(), wgpu::SurfaceError> {
@@ -190,7 +118,7 @@ impl State {
             }
         );
 
-        rpass.draw_particle_system(&self.system, &self.pipeline, &[&self.camera.bind_group, &self.texture.bind_group]);
+        rpass.draw_particle_system(&self.system);
         
         drop(rpass);
 
