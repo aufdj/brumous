@@ -1,13 +1,10 @@
 use std::mem;
-use std::io::BufRead;
 use std::path::Path;
 
 use cgmath::{Vector3, Vector4, Matrix3, Matrix4, Quaternion};
 use bytemuck;
-use wgpu::util::DeviceExt;
 
 use crate::particle_system::ParticleMeshType;
-use crate::bufio::new_input_file;
 use crate::obj::read_obj;
 use crate::error::BrumousResult;
 

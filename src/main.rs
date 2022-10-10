@@ -1,6 +1,6 @@
 use std::time::Instant;
-use std::io::{self, Write, Read};
-use std::path::{Path, PathBuf};
+use std::io::{self, Write};
+use std::path::Path;
 
 use winit::{
     event::*,
@@ -9,11 +9,9 @@ use winit::{
 };
 
 use brumous::camera::*;
-use brumous::texture::{Texture, DepthTexture};
+use brumous::texture::DepthTexture;
 use brumous::gpu::Gpu;
 use brumous::delta::Delta;
-use brumous::particle::*;
-use brumous::bufio::new_input_file;
 
 use brumous::CreateParticleSystem;
 use brumous::DrawParticleSystem;

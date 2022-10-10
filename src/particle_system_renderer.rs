@@ -3,7 +3,7 @@ use std::io::Read;
 
 use wgpu::util::DeviceExt;
 
-use crate::new_input_file;
+use crate::bufio::new_input_file;
 use crate::texture::Texture;
 use crate::particle::{
     ParticleVertex, 
@@ -39,7 +39,7 @@ impl ParticleSystemRenderer {
             }
         );
 
-        let mut bind_layouts = [
+        let bind_layouts = [
             &device.create_bind_group_layout(
                 &wgpu::BindGroupLayoutDescriptor {
                     label: Some("Camera Bind Group Layout"),
@@ -86,7 +86,7 @@ impl ParticleSystemRenderer {
             )
         ];
 
-        let mut bind_groups = vec![
+        let bind_groups = vec![
             device.create_bind_group(
                 &wgpu::BindGroupDescriptor {
                     label: Some("Camera Bind Group"),

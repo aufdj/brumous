@@ -1,14 +1,10 @@
 use std::num::NonZeroU64;
 use std::path::{Path, PathBuf};
 use std::ops::Range;
-use std::io::Read;
 
 use crate::particle::*;
-use crate::texture::Texture;
-use crate::gpu::Gpu;
 use crate::random::Randf32;
 use crate::error::BrumousResult;
-use crate::bufio::new_input_file;
 use crate::particle_system_renderer::ParticleSystemRenderer;
 
 use wgpu::util::DeviceExt;
@@ -22,7 +18,6 @@ pub struct ParticleSystem {
     search_pos:    usize,
     particle_rate: usize,
     position:      Vector3<f32>,
-    texture:       Option<Texture>,
     name:          String,
     life:          f32,
     gravity:       f32,
@@ -51,7 +46,6 @@ impl ParticleSystem {
                 particles,
                 particle_buf,
                 mesh,
-                texture:       None,
                 search_pos:    0,
                 particle_rate: sys_desc.rate,
                 position:      sys_desc.pos,
@@ -88,7 +82,6 @@ impl ParticleSystem {
                 particles,
                 particle_buf,
                 mesh,
-                texture:       None,
                 search_pos:    0,
                 particle_rate: sys_desc.rate,
                 position:      sys_desc.pos,

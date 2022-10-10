@@ -1,5 +1,4 @@
-use std::io::{BufRead, BufReader};
-use std::fs::File;
+use std::io::BufRead;
 use std::path::Path;
 
 use wgpu::util::DeviceExt;
@@ -42,7 +41,7 @@ pub fn read_obj(device: &wgpu::Device, path: &Path) -> BrumousResult<ParticleMes
     let mut file = new_input_file(path)?;
 
     let mut vertices = Vec::<ParticleVertex>::new();
-    let mut indices = Vec::<u16>::new();
+    let indices = Vec::<u16>::new();
 
     let mut v  = Vec::<[f32; 3]>::new(); // Positions
     let mut vt = Vec::<[f32; 2]>::new(); // Texture coordinates

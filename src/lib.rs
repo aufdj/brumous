@@ -11,23 +11,9 @@ pub mod error;
 pub mod particle_system_renderer;
 pub mod particle_system;
 
-use std::num::NonZeroU64;
-use std::path::{Path, PathBuf};
-use std::ops::Range;
-use std::io::Read;
-
-use crate::particle::*;
-use crate::texture::Texture;
-use crate::gpu::Gpu;
-use crate::random::Randf32;
 use crate::error::BrumousResult;
-use crate::bufio::new_input_file;
-use crate::particle_system_renderer::ParticleSystemRenderer;
 use crate::particle_system::ParticleSystem;
 use crate::particle_system::ParticleSystemDescriptor;
-
-use wgpu::util::DeviceExt;
-use cgmath::Vector3;
 
 
 /// Creates a new particle system.
