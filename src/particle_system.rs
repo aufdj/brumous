@@ -6,6 +6,7 @@ use crate::particle::*;
 use crate::random::Randf32;
 use crate::error::BrumousResult;
 use crate::particle_system_renderer::ParticleSystemRenderer;
+use crate::particle_system_renderer::ParticleSystemRendererDescriptor;
 
 use wgpu::util::DeviceExt;
 use cgmath::Vector3;
@@ -13,7 +14,6 @@ use cgmath::Vector3;
 /// A ParticleSystem manages a set of particles.
 pub struct ParticleSystem {
     particles:     Vec<Particle>,
-    pub mesh:      ParticleMesh,
     particle_buf:  wgpu::Buffer,
     search_pos:    usize,
     particle_rate: usize,
@@ -28,10 +28,9 @@ pub struct ParticleSystem {
 impl ParticleSystem {
     pub fn new(
         device: &wgpu::Device,
-        sys_desc: &ParticleSystemDescriptor, 
+        desc:   &ParticleSystemDescriptor, 
     ) -> BrumousResult<Self> {
-        let particles = vec![Particle::default(); sys_desc.max];
-        let mesh = ParticleMesh::new(device, &sys_desc.mesh_type)?;
+        let particles = vec![Particle::default(); desc.max];
 
         let particle_buf = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
@@ -45,27 +44,26 @@ impl ParticleSystem {
             Self {
                 particles,
                 particle_buf,
-                mesh,
                 search_pos:    0,
-                particle_rate: sys_desc.rate,
-                position:      sys_desc.pos,
-                name:          sys_desc.name.to_string(),
-                life:          sys_desc.life,
-                gravity:       sys_desc.gravity,
-                bounds:        sys_desc.bounds.clone(),
+                particle_rate: desc.rate,
+                position:      desc.pos,
+                name:          desc.name.to_string(),
+                life:          desc.life,
+                gravity:       desc.gravity,
+                bounds:        desc.bounds.clone(),
                 rand:          Randf32::new(),
                 renderer:      None,
             }
         )
     }
     pub fn new_with_renderer(
-        device: &wgpu::Device,
-        config: &wgpu::SurfaceConfiguration,
-        queue: &wgpu::Queue,
-        sys_desc: &ParticleSystemDescriptor, 
+        device:    &wgpu::Device,
+        config:    &wgpu::SurfaceConfiguration,
+        queue:     &wgpu::Queue,
+        sys_desc:  &ParticleSystemDescriptor,
+        rend_desc: &ParticleSystemRendererDescriptor, 
     ) -> BrumousResult<Self> {
         let particles = vec![Particle::default(); sys_desc.max];
-        let mesh = ParticleMesh::new(device, &sys_desc.mesh_type)?;
 
         let particle_buf = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
@@ -75,13 +73,14 @@ impl ParticleSystem {
             }
         );
 
-        let renderer = Some(ParticleSystemRenderer::new(device, queue, config, sys_desc.texture));
+        let renderer = Some(
+            ParticleSystemRenderer::new(device, queue, config, rend_desc)?
+        );
 
         Ok(
             Self {
                 particles,
                 particle_buf,
-                mesh,
                 search_pos:    0,
                 particle_rate: sys_desc.rate,
                 position:      sys_desc.pos,
@@ -220,11 +219,13 @@ impl ParticleSystem {
             queue.write_buffer(&renderer.view_proj, 0, bytemuck::cast_slice(&[vp]));
         }
     }
+    pub fn set_renderer(&mut self, renderer: ParticleSystemRenderer) {
+        self.renderer = Some(renderer);
+    }
 }
 
 /// Describes characteristics of a particle system.
 pub struct ParticleSystemDescriptor<'a> {
-    pub mesh_type: ParticleMeshType,
     pub max:       usize,
     pub rate:      usize,
     pub pos:       Vector3<f32>,
@@ -232,12 +233,10 @@ pub struct ParticleSystemDescriptor<'a> {
     pub life:      f32,
     pub gravity:   f32,
     pub bounds:    ParticleSystemBounds,
-    pub texture:   &'a Path,
 }
 impl<'a> Default for ParticleSystemDescriptor<'a> {
     fn default() -> Self {
         Self {
-            mesh_type: ParticleMeshType::default(),
             max:       500,
             rate:      3,
             pos:       Vector3::new(0.0, 0.0, 0.0),
@@ -245,17 +244,8 @@ impl<'a> Default for ParticleSystemDescriptor<'a> {
             life:      5.0,
             gravity:   -9.81,
             bounds:    ParticleSystemBounds::default(),
-            texture:   Path::new(""),
         }
     }
-}
-
-/// Defines model of each particle.
-#[derive(Default)]
-pub enum ParticleMeshType {
-    #[default]
-    Cube,
-    Custom(PathBuf),
 }
 
 

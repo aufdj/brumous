@@ -4,7 +4,7 @@ use std::path::Path;
 use cgmath::{Vector3, Vector4, Matrix3, Matrix4, Quaternion};
 use bytemuck;
 
-use crate::particle_system::ParticleMeshType;
+use crate::particle_system_renderer::ParticleMeshType;
 use crate::obj::read_obj;
 use crate::error::BrumousResult;
 

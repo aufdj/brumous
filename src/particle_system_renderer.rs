@@ -1,15 +1,25 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::io::Read;
 
 use wgpu::util::DeviceExt;
 
+use crate::error::BrumousResult;
 use crate::bufio::new_input_file;
 use crate::texture::Texture;
 use crate::particle::{
     ParticleVertex, 
     ParticleInstance, 
-    VertexLayout
+    VertexLayout,
+    ParticleMesh
 };
+
+/// Defines model of each particle.
+#[derive(Default)]
+pub enum ParticleMeshType {
+    #[default]
+    Cube,
+    Custom(PathBuf),
+}
 
 const VIEW_PROJ: [[f32; 4]; 4] = [
     [1.0, 0.0, 0.0, 0.0],
@@ -22,15 +32,18 @@ pub struct ParticleSystemRenderer {
     pub pipeline:    wgpu::RenderPipeline,
     pub bind_groups: Vec<wgpu::BindGroup>,
     pub view_proj:   wgpu::Buffer,
+    pub mesh:        ParticleMesh,
 }
 impl ParticleSystemRenderer {
     pub fn new(
         device: &wgpu::Device, 
         queue: &wgpu::Queue, 
         config: &wgpu::SurfaceConfiguration,
-        texture_path: &Path,
-    ) -> Self {
-        let texture = Texture::new(device, queue, texture_path).unwrap();
+        desc: &ParticleSystemRendererDescriptor,
+    ) -> BrumousResult<Self> {
+        let texture = Texture::new(device, queue, desc.texture).unwrap();
+        let mesh = ParticleMesh::new(device, &desc.mesh_type)?;
+
         let view_proj = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: Some("Camera Buffer"),
@@ -185,10 +198,26 @@ impl ParticleSystemRenderer {
             }
         );
 
+        Ok(
+            Self {
+                pipeline,
+                bind_groups,
+                view_proj,
+                mesh,
+            }
+        )
+    }
+}
+
+pub struct ParticleSystemRendererDescriptor<'a> {
+    texture: &'a Path,
+    mesh_type: ParticleMeshType,
+}
+impl<'a> Default for ParticleSystemRendererDescriptor<'a> {
+    fn default() -> Self {
         Self {
-            pipeline,
-            bind_groups,
-            view_proj,
+            texture: Path::new("image/fire.jpg"),
+            mesh_type: ParticleMeshType::default(),
         }
     }
 }

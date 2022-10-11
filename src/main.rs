@@ -49,9 +49,9 @@ impl State {
                 },
                 max: 500,
                 rate: 3,
-                texture: Path::new("image/fire.jpg"),
                 ..Default::default()
             },
+            &brumous::particle_system_renderer::ParticleSystemRendererDescriptor::default()
         ) {
             Ok(sys) => sys,
             Err(e) => panic!("{e}"),

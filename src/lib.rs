@@ -14,6 +14,7 @@ pub mod particle_system;
 use crate::error::BrumousResult;
 use crate::particle_system::ParticleSystem;
 use crate::particle_system::ParticleSystemDescriptor;
+use crate::particle_system_renderer::ParticleSystemRendererDescriptor;
 
 
 /// Creates a new particle system.
@@ -24,10 +25,12 @@ pub trait CreateParticleSystem {
     ) -> BrumousResult<ParticleSystem>;
     fn create_particle_system_with_renderer(
         &self, 
-        config: &wgpu::SurfaceConfiguration,
-        queue: &wgpu::Queue,
-        desc: &ParticleSystemDescriptor, 
+        config:    &wgpu::SurfaceConfiguration,
+        queue:     &wgpu::Queue,
+        sys_desc:  &ParticleSystemDescriptor, 
+        rend_desc: &ParticleSystemRendererDescriptor,
     ) -> BrumousResult<ParticleSystem>;
+
 }
 impl CreateParticleSystem for wgpu::Device {
     fn create_particle_system(
@@ -38,11 +41,12 @@ impl CreateParticleSystem for wgpu::Device {
     }
     fn create_particle_system_with_renderer(
         &self, 
-        config: &wgpu::SurfaceConfiguration,
-        queue: &wgpu::Queue,
-        desc: &ParticleSystemDescriptor, 
+        config:    &wgpu::SurfaceConfiguration,
+        queue:     &wgpu::Queue,
+        sys_desc:  &ParticleSystemDescriptor, 
+        rend_desc: &ParticleSystemRendererDescriptor,
     ) -> BrumousResult<ParticleSystem> {
-        ParticleSystem::new_with_renderer(self, config, queue, desc)
+        ParticleSystem::new_with_renderer(self, config, queue, sys_desc, rend_desc)
     }
 }
 
@@ -64,17 +68,16 @@ impl<'a, 'b> DrawParticleSystem<'a, 'b> for wgpu::RenderPass<'a> where 'a: 'b {
             for (i, group) in renderer.bind_groups.iter().enumerate() {
                 self.set_bind_group(i as u32, group, &[]);
             }
-        }
-        
-        self.set_vertex_buffer(0, sys.mesh.vertex_buf.slice(..));
-        self.set_vertex_buffer(1, sys.particle_buf().slice(..));
+            self.set_vertex_buffer(0, renderer.mesh.vertex_buf.slice(..));
+            self.set_vertex_buffer(1, sys.particle_buf().slice(..));
 
-        if let Some(index_buf) = &sys.mesh.index_buf {
-            self.set_index_buffer(index_buf.slice(..), wgpu::IndexFormat::Uint16);
-            self.draw_indexed(0..sys.mesh.index_count, 0, 0..sys.particle_count());
-        }
-        else {
-            self.draw(0..sys.mesh.vertex_count, 0..sys.particle_count());
+            if let Some(index_buf) = &renderer.mesh.index_buf {
+                self.set_index_buffer(index_buf.slice(..), wgpu::IndexFormat::Uint16);
+                self.draw_indexed(0..renderer.mesh.index_count, 0, 0..sys.particle_count());
+            }
+            else {
+                self.draw(0..renderer.mesh.vertex_count, 0..sys.particle_count());
+            }
         }
     }
 }
