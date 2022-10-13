@@ -13,17 +13,17 @@ use cgmath::Vector3;
 
 /// A ParticleSystem manages a set of particles.
 pub struct ParticleSystem {
-    particles:     Vec<Particle>,
-    particle_buf:  wgpu::Buffer,
-    search_pos:    usize,
-    particle_rate: usize,
-    position:      Vector3<f32>,
-    name:          String,
-    life:          f32,
-    gravity:       f32,
-    bounds:        ParticleSystemBounds,
-    rand:          Randf32,
-    pub renderer:  Option<ParticleSystemRenderer>,
+    particles:    Vec<Particle>,
+    particle_buf: wgpu::Buffer,
+    search_pos:   usize,
+    rate:         usize,
+    position:     Vector3<f32>,
+    name:         String,
+    life:         f32,
+    gravity:      f32,
+    bounds:       ParticleSystemBounds,
+    rand:         Randf32,
+    pub renderer: Option<ParticleSystemRenderer>,
 }
 impl ParticleSystem {
     pub fn new(
@@ -44,15 +44,15 @@ impl ParticleSystem {
             Self {
                 particles,
                 particle_buf,
-                search_pos:    0,
-                particle_rate: desc.rate,
-                position:      desc.pos,
-                name:          desc.name.to_string(),
-                life:          desc.life,
-                gravity:       desc.gravity,
-                bounds:        desc.bounds.clone(),
-                rand:          Randf32::new(),
-                renderer:      None,
+                search_pos:   0,
+                rate:         desc.rate,
+                position:     desc.pos,
+                name:         desc.name.to_string(),
+                life:         desc.life,
+                gravity:      desc.gravity,
+                bounds:       desc.bounds.clone(),
+                rand:         Randf32::new(),
+                renderer:     None,
             }
         )
     }
@@ -82,7 +82,7 @@ impl ParticleSystem {
                 particles,
                 particle_buf,
                 search_pos:    0,
-                particle_rate: sys_desc.rate,
+                rate:          sys_desc.rate,
                 position:      sys_desc.pos,
                 name:          sys_desc.name.to_string(),
                 life:          sys_desc.life,
@@ -113,19 +113,19 @@ impl ParticleSystem {
     /// Create new particle 
     fn new_particle(&mut self) -> Particle {
         Particle {
-            pos:   self.rand.vec3_in_range(&self.bounds.spawn_range) + self.position,
-            vel:   self.rand.vec3_in_range(&self.bounds.init_vel), 
-            rot:   self.rand.quat_in_range(&self.bounds.rot), 
-            color: self.rand.vec4_in_range(&self.bounds.color),
-            scale: self.rand.in_range(&self.bounds.scale),
-            life:  self.rand.in_range(&self.bounds.life), 
-            mass:  self.rand.in_range(&self.bounds.mass),
+            pos:   self.rand.vec3_spread(&self.bounds.spawn_range) + self.position,
+            vel:   self.rand.vec3_spread(&self.bounds.init_vel), 
+            rot:   self.rand.quat_spread(&self.bounds.rot), 
+            color: self.rand.vec4_spread(&self.bounds.color),
+            scale: self.rand.spread(&self.bounds.scale),
+            life:  self.rand.spread(&self.bounds.life), 
+            mass:  self.rand.spread(&self.bounds.mass),
         }
     }
     /// Spawn new particles and update existing particles, should be called every frame.
     pub fn update(&mut self, delta: f32, queue: &wgpu::Queue) {
         if self.life >= 0.0 {
-            for _ in 0..self.particle_rate {
+            for _ in 0..self.rate {
                 let idx = self.find_unused_particle();
                 self.particles[idx] = self.new_particle();
             }
@@ -179,8 +179,8 @@ impl ParticleSystem {
         self.position = Vector3::new(pos[0], pos[1], pos[2]);
     }
     /// Set number of particles spawned per frame.
-    pub fn set_particle_rate(&mut self, particle_rate: usize) {
-        self.particle_rate = particle_rate;
+    pub fn set_rate(&mut self, rate: usize) {
+        self.rate = rate;
     }
     /// Set gravity of particle system.
     pub fn set_gravity(&mut self, gravity: f32) {
@@ -190,30 +190,30 @@ impl ParticleSystem {
     pub fn set_name(&mut self, name: String) {
         self.name = name;
     }
-    /// Set minimum and maximum particle mass.
-    pub fn set_mass_bounds(&mut self, mass: Range<f32>) {
-        self.bounds.mass = mass;
-    }
-    /// Set minimum and maximum initial particle velocity.
-    pub fn set_initial_velocity_bounds(&mut self, init_vel: [Range<f32>; 3]) {
-        self.bounds.init_vel = init_vel;
-    }
-    /// Set dimensions of area in which particles spawn.
-    pub fn set_spawn_range(&mut self, spawn_range: [Range<f32>; 3]) {
-        self.bounds.spawn_range = spawn_range;
-    }
-    /// Set minimum and maximum particle lifetimes.
-    pub fn set_life_bounds(&mut self, life: Range<f32>) {
-        self.bounds.life = life;
-    }
-    /// Set minimum and maximum particle RGBA values.
-    pub fn set_color_bounds(&mut self, color: [Range<f32>; 4]) {
-        self.bounds.color = color;
-    }
-    /// Set minimum and maximum particle size.
-    pub fn set_scale_bounds(&mut self, scale: Range<f32>) {
-        self.bounds.scale = scale;
-    }
+    // /// Set minimum and maximum particle mass.
+    // pub fn set_mass_bounds(&mut self, mass: Range<f32>) {
+    //     self.bounds.mass = mass;
+    // }
+    // /// Set minimum and maximum initial particle velocity.
+    // pub fn set_initial_velocity_bounds(&mut self, init_vel: [Range<f32>; 3]) {
+    //     self.bounds.init_vel = init_vel;
+    // }
+    // /// Set dimensions of area in which particles spawn.
+    // pub fn set_spawn_range(&mut self, spawn_range: [Range<f32>; 3]) {
+    //     self.bounds.spawn_range = spawn_range;
+    // }
+    // /// Set minimum and maximum particle lifetimes.
+    // pub fn set_life_bounds(&mut self, life: Range<f32>) {
+    //     self.bounds.life = life;
+    // }
+    // /// Set minimum and maximum particle RGBA values.
+    // pub fn set_color_bounds(&mut self, color: [Range<f32>; 4]) {
+    //     self.bounds.color = color;
+    // }
+    // /// Set minimum and maximum particle size.
+    // pub fn set_scale_bounds(&mut self, scale: Range<f32>) {
+    //     self.bounds.scale = scale;
+    // }
     pub fn set_view_proj(&mut self, queue: &wgpu::Queue, vp: [[f32; 4]; 4]) {
         if let Some(renderer) = &self.renderer {
             queue.write_buffer(&renderer.view_proj, 0, bytemuck::cast_slice(&[vp]));
@@ -248,29 +248,42 @@ impl<'a> Default for ParticleSystemDescriptor<'a> {
     }
 }
 
+#[derive(Copy, Clone)]
+pub struct Spread {
+    pub mean:     f32,
+    pub variance: f32,
+}
+impl Spread {
+    pub fn new(mean: f32, variance: f32) -> Self {
+        Self {
+            mean, variance
+        }
+    }
+}
 
-/// Describes the range of possible values 
+
+/// Describes the range of possible values
 /// of a particle's traits.
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct ParticleSystemBounds {
-    pub spawn_range: [Range<f32>; 3],
-    pub init_vel:    [Range<f32>; 3],
-    pub rot:         [Range<f32>; 4],
-    pub color:       [Range<f32>; 4],
-    pub life:        Range<f32>,
-    pub mass:        Range<f32>,
-    pub scale:       Range<f32>,
+    pub spawn_range: [Spread; 3],
+    pub init_vel:    [Spread; 3],
+    pub rot:         [Spread; 4],
+    pub color:       [Spread; 4],
+    pub life:        Spread,
+    pub mass:        Spread,
+    pub scale:       Spread,
 }
 impl Default for ParticleSystemBounds {
     fn default() -> Self {
         Self {
-            spawn_range: [0.0..0.0, 0.0..0.0, 0.0..0.0],
-            life:        1.0..10.0,
-            init_vel:    [-0.2..0.2, 0.5..1.0, -0.2..0.2],
-            rot:         [-0.5..0.5, -0.5..0.5, -0.5..0.5, -0.5..0.5],
-            color:       [0.0..1.0, 0.0..1.0, 0.0..1.0, 0.0..1.0],
-            mass:        0.1..1.0,
-            scale:       0.005..0.010,
+            spawn_range: [Spread::new(0.0, 0.0); 3],
+            life:        Spread::new(5.0, 2.0),
+            init_vel:    [Spread::new(0.0, 0.2), Spread::new(0.7, 0.2), Spread::new(0.0, 0.2)],
+            rot:         [Spread::new(0.0, 0.5); 4],
+            color:       [Spread::new(0.5, 0.5); 4],
+            mass:        Spread::new(0.5, 0.5),
+            scale:       Spread::new(0.007, 0.002),
         }
     }
 }

@@ -132,8 +132,7 @@ impl ParticleSystemRenderer {
 
         let mut shader_str = String::new();
 
-        new_input_file(Path::new("src/particle.wgsl")).unwrap()
-        .read_to_string(&mut shader_str).unwrap();
+        new_input_file(Path::new("src/particle.wgsl"))?.read_to_string(&mut shader_str)?;
 
         let shader = device.create_shader_module(
             wgpu::ShaderModuleDescriptor {

@@ -38,15 +38,7 @@ impl State {
             &gpu.config,
             &gpu.queue,
             &brumous::particle_system::ParticleSystemDescriptor {
-                bounds: brumous::particle_system::ParticleSystemBounds {
-                    spawn_range: [0.0..0.0, 0.0..0.0, 0.0..0.0],
-                    life:        1.0..10.0,
-                    init_vel:    [-0.2..0.2, 0.05..0.1, -0.2..0.2],
-                    rot:         [0.0..0.0, 0.0..0.0, 0.0..0.0, 0.0..0.0],
-                    color:       [0.0..1.0, 0.0..1.0, 0.0..1.0, 0.0..1.0],
-                    mass:        0.1..0.5,
-                    scale:       0.005..0.010,
-                },
+                bounds: brumous::particle_system::ParticleSystemBounds::default(),
                 max: 500,
                 rate: 3,
                 ..Default::default()
