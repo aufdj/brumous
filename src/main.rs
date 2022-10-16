@@ -1,6 +1,5 @@
-use std::time::Instant;
+use std::time::{Duration, Instant};
 use std::io::{self, Write};
-use std::path::Path;
 
 use winit::{
     event::*,
@@ -69,7 +68,7 @@ impl State {
         self.camera.controller.process_events(event)
     }
 
-    fn update(&mut self, delta: f32) {
+    fn update(&mut self, delta: Duration) {
         self.camera.update(&self.gpu.queue);
         self.system.update(delta, &self.gpu.queue);
         self.system.set_view_proj(&self.gpu.queue, self.camera.uniform.view_proj);
@@ -161,7 +160,7 @@ pub async fn run() {
                 }
             }
             Event::MainEventsCleared => {
-                state.update(state.delta.frame_time_f32());
+                state.update(state.delta.frame_time());
                 let frame = match state.gpu.surface.get_current_texture() {
                     Ok(frame) => frame,
                     Err(e) => {

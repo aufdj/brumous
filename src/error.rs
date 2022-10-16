@@ -7,6 +7,7 @@ pub type BrumousResult<T> = Result<T, BrumousError>;
 pub enum BrumousError {
     IoError(io::Error),
     ObjParseError(PathBuf, usize),
+    LoadTextureError(PathBuf),
 }
 impl From<io::Error> for BrumousError {
     fn from(err: io::Error) -> Self {
@@ -24,6 +25,12 @@ impl fmt::Display for BrumousError {
             BrumousError::ObjParseError(path, line) => {
                 write!(f, "
                     \rError parsing file {}: line {line}",
+                    path.display()
+                )
+            }
+            BrumousError::LoadTextureError(path) => {
+                write!(f, "
+                    \rError loading texture {}",
                     path.display()
                 )
             }

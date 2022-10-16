@@ -2,22 +2,32 @@ use std::path::Path;
 use std::io::Read;
 
 use crate::bufio::new_input_file;
+use crate::error::{BrumousError, BrumousResult};
 
 use image::{ImageError, GenericImageView};
 
 pub struct Texture {
-    pub texture:     wgpu::Texture,
-    pub view:        wgpu::TextureView,
-    pub sampler:     wgpu::Sampler,
+    pub texture: wgpu::Texture,
+    pub view:    wgpu::TextureView,
+    pub sampler: wgpu::Sampler,
 }
 impl Texture {
     pub const DEPTH_FORMAT: wgpu::TextureFormat = wgpu::TextureFormat::Depth32Float;
 
-    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, path: &Path) -> Result<Self, ImageError> {
+    pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, path: &Path) -> BrumousResult<Self> {
         let mut texture_data = Vec::new();
-        new_input_file(path).unwrap().read_to_end(&mut texture_data).unwrap();
+        new_input_file(path)?.read_to_end(&mut texture_data)?;
 
-        let img = image::load_from_memory(&texture_data)?;
+        let img = match image::load_from_memory(&texture_data) {
+            Ok(img) => {
+                img
+            }
+            Err(_) => {
+                return Err(
+                    BrumousError::LoadTextureError(path.to_path_buf())
+                );
+            }
+        };
 
         let rgba = img.to_rgba8();
         let dimensions = img.dimensions();

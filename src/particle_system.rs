@@ -1,6 +1,7 @@
 use std::num::NonZeroU64;
 use std::path::{Path, PathBuf};
 use std::ops::Range;
+use std::time::Duration;
 
 use crate::particle::*;
 use crate::random::Randf32;
@@ -123,7 +124,8 @@ impl ParticleSystem {
         }
     }
     /// Spawn new particles and update existing particles, should be called every frame.
-    pub fn update(&mut self, delta: f32, queue: &wgpu::Queue) {
+    pub fn update(&mut self, delta: Duration, queue: &wgpu::Queue) {
+        let delta = delta.as_millis() as f32 / 1000.0;
         if self.life >= 0.0 {
             for _ in 0..self.rate {
                 let idx = self.find_unused_particle();
@@ -190,30 +192,30 @@ impl ParticleSystem {
     pub fn set_name(&mut self, name: String) {
         self.name = name;
     }
-    // /// Set minimum and maximum particle mass.
-    // pub fn set_mass_bounds(&mut self, mass: Range<f32>) {
-    //     self.bounds.mass = mass;
-    // }
-    // /// Set minimum and maximum initial particle velocity.
-    // pub fn set_initial_velocity_bounds(&mut self, init_vel: [Range<f32>; 3]) {
-    //     self.bounds.init_vel = init_vel;
-    // }
-    // /// Set dimensions of area in which particles spawn.
-    // pub fn set_spawn_range(&mut self, spawn_range: [Range<f32>; 3]) {
-    //     self.bounds.spawn_range = spawn_range;
-    // }
-    // /// Set minimum and maximum particle lifetimes.
-    // pub fn set_life_bounds(&mut self, life: Range<f32>) {
-    //     self.bounds.life = life;
-    // }
-    // /// Set minimum and maximum particle RGBA values.
-    // pub fn set_color_bounds(&mut self, color: [Range<f32>; 4]) {
-    //     self.bounds.color = color;
-    // }
-    // /// Set minimum and maximum particle size.
-    // pub fn set_scale_bounds(&mut self, scale: Range<f32>) {
-    //     self.bounds.scale = scale;
-    // }
+    /// Set minimum and maximum particle mass.
+    pub fn set_mass_spread(&mut self, mass: Spread) {
+        self.bounds.mass = mass;
+    }
+    /// Set minimum and maximum initial particle velocity.
+    pub fn set_initial_velocity_spread(&mut self, init_vel: [Spread; 3]) {
+        self.bounds.init_vel = init_vel;
+    }
+    /// Set dimensions of area in which particles spawn.
+    pub fn set_spawn_range(&mut self, spawn_range: [Spread; 3]) {
+        self.bounds.spawn_range = spawn_range;
+    }
+    /// Set minimum and maximum particle lifetimes.
+    pub fn set_life_spread(&mut self, life: Spread) {
+        self.bounds.life = life;
+    }
+    /// Set minimum and maximum particle RGBA values.
+    pub fn set_color_spread(&mut self, color: [Spread; 4]) {
+        self.bounds.color = color;
+    }
+    /// Set minimum and maximum particle size.
+    pub fn set_scale_spread(&mut self, scale: Spread) {
+        self.bounds.scale = scale;
+    }
     pub fn set_view_proj(&mut self, queue: &wgpu::Queue, vp: [[f32; 4]; 4]) {
         if let Some(renderer) = &self.renderer {
             queue.write_buffer(&renderer.view_proj, 0, bytemuck::cast_slice(&[vp]));
@@ -282,7 +284,7 @@ impl Default for ParticleSystemBounds {
             init_vel:    [Spread::new(0.0, 0.2), Spread::new(0.7, 0.2), Spread::new(0.0, 0.2)],
             rot:         [Spread::new(0.0, 0.5); 4],
             color:       [Spread::new(0.5, 0.5); 4],
-            mass:        Spread::new(0.5, 0.5),
+            mass:        Spread::new(0.5, 0.1),
             scale:       Spread::new(0.007, 0.002),
         }
     }

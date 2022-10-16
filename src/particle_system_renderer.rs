@@ -41,7 +41,13 @@ impl ParticleSystemRenderer {
         config: &wgpu::SurfaceConfiguration,
         desc: &ParticleSystemRendererDescriptor,
     ) -> BrumousResult<Self> {
-        let texture = Texture::new(device, queue, desc.texture).unwrap();
+        let texture = if let Some(tex) = desc.texture {
+            Texture::new(device, queue, tex)?
+        }
+        else {
+            Texture::new(device, queue, Path::new("image/default.png"))?
+        };
+
         let mesh = ParticleMesh::new(device, &desc.mesh_type)?;
 
         let view_proj = device.create_buffer_init(
@@ -209,13 +215,13 @@ impl ParticleSystemRenderer {
 }
 
 pub struct ParticleSystemRendererDescriptor<'a> {
-    texture: &'a Path,
+    texture: Option<&'a Path>,
     mesh_type: ParticleMeshType,
 }
 impl<'a> Default for ParticleSystemRendererDescriptor<'a> {
     fn default() -> Self {
         Self {
-            texture: Path::new("image/fire.jpg"),
+            texture: Some(Path::new("image/default.png")),
             mesh_type: ParticleMeshType::default(),
         }
     }

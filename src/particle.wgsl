@@ -15,7 +15,6 @@ struct ParticleInput {
     @location(12) color: vec4<f32>,
 };
 
-
 struct VertexInput {
     @location(0) pos: vec3<f32>,
     @location(1) tex_coords: vec2<f32>,
@@ -70,14 +69,16 @@ fn fs_color(in: VertexOutput) -> @location(0) vec4<f32> {
 @fragment
 fn fs_texture(in: VertexOutput) -> @location(0) vec4<f32> {
     return textureSample(tx, smpl, in.tex_coords);
-    // let obj_col: vec4<f32> = textureSample(texture, sampler, in.tex_coords);
+    // let light_pos = vec3<f32>(1.0, 1.0, 0.0);
+    // let light_col = vec3<f32>(1.0, 0.0, 0.0);
+    // let obj_col: vec4<f32> = textureSample(tx, smpl, in.tex_coords);
 
     // let ambient_strength = 0.1;
-    // let ambient_color = light.color * ambient_strength;
+    // let ambient_color = light_col * ambient_strength;
 
-    // let light_dir = normalize(light.pos - in.world_pos);
+    // let light_dir = normalize(light_pos - in.world_pos);
     // let diffuse_strength = max(dot(in.world_normal, light_dir), 0.0);
-    // let diffuse_color = light.color * diffuse_strength;
+    // let diffuse_color = light_col * diffuse_strength;
 
     // let result = (ambient_color + diffuse_color) * obj_col.xyz;
 
