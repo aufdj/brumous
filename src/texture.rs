@@ -4,7 +4,7 @@ use std::io::Read;
 use crate::bufio::new_input_file;
 use crate::error::{BrumousError, BrumousResult};
 
-use image::{ImageError, GenericImageView};
+use image::GenericImageView;
 
 pub struct Texture {
     pub texture: wgpu::Texture,
