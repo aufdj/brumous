@@ -36,13 +36,16 @@ impl State {
         let system = match gpu.device.create_particle_system_with_renderer(
             &gpu.config,
             &gpu.queue,
-            &brumous::particle_system::ParticleSystemDescriptor {
-                bounds: brumous::particle_system::ParticleSystemBounds::default(),
+            &brumous::ParticleSystemDescriptor {
+                bounds: brumous::ParticleSystemBounds::default(),
                 max: 500,
-                rate: 3,
+                rate: 2,
                 ..Default::default()
             },
-            &brumous::particle_system_renderer::ParticleSystemRendererDescriptor::default()
+            &brumous::ParticleSystemRendererDescriptor {
+                texture: Some("image/metal.jpg"),
+                ..Default::default()
+            }
         ) {
             Ok(sys) => sys,
             Err(e) => panic!("{e}"),
@@ -72,6 +75,7 @@ impl State {
         self.camera.update(&self.gpu.queue);
         self.system.update(delta, &self.gpu.queue);
         self.system.set_view_proj(&self.gpu.queue, self.camera.uniform.view_proj);
+        self.system.set_view_pos(&self.gpu.queue, self.camera.view_pos());
     }
 
     fn render(&mut self, view: &wgpu::TextureView) -> Result<(), wgpu::SurfaceError> {

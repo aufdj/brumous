@@ -5,7 +5,10 @@ use crate::particle::*;
 use crate::random::Randf32;
 use crate::error::BrumousResult;
 use crate::particle_system_renderer::ParticleSystemRenderer;
-use crate::particle_system_renderer::ParticleSystemRendererDescriptor;
+use crate::ParticleSystemRendererDescriptor;
+use crate::ParticleSystemDescriptor;
+use crate::ParticleSystemBounds;
+use crate::Spread;
 
 use wgpu::util::DeviceExt;
 use cgmath::Vector3;
@@ -34,7 +37,7 @@ impl ParticleSystem {
         let particle_buf = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: Some("Instance Buffer"),
-                contents: bytemuck::cast_slice(&particles.to_raw()),
+                contents: bytemuck::cast_slice(&particles.instance()),
                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             }
         );
@@ -67,7 +70,7 @@ impl ParticleSystem {
         let particle_buf = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: Some("Instance Buffer"),
-                contents: bytemuck::cast_slice(&particles.to_raw()),
+                contents: bytemuck::cast_slice(&particles.instance()),
                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             }
         );
@@ -139,7 +142,7 @@ impl ParticleSystem {
                 queue.write_buffer(
                     &self.particle_buf,
                     index as u64 * ParticleInstance::size(),
-                    bytemuck::cast_slice(&[particle.to_raw()])
+                    bytemuck::cast_slice(&[particle.instance()])
                 );
             }
         }
@@ -169,7 +172,7 @@ impl ParticleSystem {
         self.particle_buf = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: Some("Particle Buffer"),
-                contents: bytemuck::cast_slice(&self.particles.to_raw()),
+                contents: bytemuck::cast_slice(&self.particles.instance()),
                 usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
             }
         );
@@ -216,74 +219,12 @@ impl ParticleSystem {
     }
     pub fn set_view_proj(&mut self, queue: &wgpu::Queue, vp: [[f32; 4]; 4]) {
         if let Some(renderer) = &self.renderer {
-            queue.write_buffer(&renderer.view_proj, 0, bytemuck::cast_slice(&[vp]));
+            queue.write_buffer(&renderer.view_data, 0, bytemuck::cast_slice(&[vp]));
         }
     }
-    pub fn set_renderer(&mut self, renderer: ParticleSystemRenderer) {
-        self.renderer = Some(renderer);
-    }
-}
-
-/// Describes characteristics of a particle system.
-pub struct ParticleSystemDescriptor<'a> {
-    pub max:       usize,
-    pub rate:      usize,
-    pub pos:       Vector3<f32>,
-    pub name:      &'a str,
-    pub life:      f32,
-    pub gravity:   f32,
-    pub bounds:    ParticleSystemBounds,
-}
-impl<'a> Default for ParticleSystemDescriptor<'a> {
-    fn default() -> Self {
-        Self {
-            max:       500,
-            rate:      3,
-            pos:       Vector3::new(0.0, 0.0, 0.0),
-            name:      "Particle System",
-            life:      5.0,
-            gravity:   -9.81,
-            bounds:    ParticleSystemBounds::default(),
-        }
-    }
-}
-
-#[derive(Copy, Clone)]
-pub struct Spread {
-    pub mean:     f32,
-    pub variance: f32,
-}
-impl Spread {
-    pub fn new(mean: f32, variance: f32) -> Self {
-        Self {
-            mean, variance
-        }
-    }
-}
-
-
-/// Describes the range of possible values
-/// of a particle's traits.
-#[derive(Copy, Clone)]
-pub struct ParticleSystemBounds {
-    pub spawn_range: [Spread; 3],
-    pub init_vel:    [Spread; 3],
-    pub rot:         [Spread; 4],
-    pub color:       [Spread; 4],
-    pub life:        Spread,
-    pub mass:        Spread,
-    pub scale:       Spread,
-}
-impl Default for ParticleSystemBounds {
-    fn default() -> Self {
-        Self {
-            spawn_range: [Spread::new(0.0, 0.0); 3],
-            life:        Spread::new(5.0, 2.0),
-            init_vel:    [Spread::new(0.0, 0.2), Spread::new(0.7, 0.2), Spread::new(0.0, 0.2)],
-            rot:         [Spread::new(0.0, 0.5); 4],
-            color:       [Spread::new(0.5, 0.5); 4],
-            mass:        Spread::new(0.5, 0.1),
-            scale:       Spread::new(0.007, 0.002),
+    pub fn set_view_pos(&mut self, queue: &wgpu::Queue, vp: [f32; 4]) {
+        if let Some(renderer) = &self.renderer {
+            queue.write_buffer(&renderer.view_data, 64, bytemuck::cast_slice(&[vp]));
         }
     }
 }

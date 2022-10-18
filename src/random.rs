@@ -1,7 +1,7 @@
 use std::ops::Range;
 use cgmath::{Vector3, Vector4, Quaternion};
 
-use crate::particle_system::Spread;
+use crate::Spread;
 
 /// Constant for converting u64 numbers to f64s in [0,1).
 /// It is the maximum value of mantissa plus one.

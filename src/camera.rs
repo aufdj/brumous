@@ -121,6 +121,9 @@ impl Camera {
         self.update_view_proj();
         queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(&[self.uniform]));
     }
+    pub fn view_pos(&self) -> [f32; 4] {
+        [self.eye.x, self.eye.y, self.eye.z, 0.0]
+    }
 }
 
 #[repr(C)]

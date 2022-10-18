@@ -4,17 +4,17 @@ use std::path::Path;
 use cgmath::{Vector3, Vector4, Matrix3, Matrix4, Quaternion};
 use bytemuck;
 
-use crate::particle_system_renderer::ParticleMeshType;
+use crate::ParticleMeshType;
 use crate::obj::read_obj;
 use crate::error::BrumousResult;
 
 
-pub trait ToRaw {
-    fn to_raw(&self) -> Vec<ParticleInstance>;
+pub trait Instance {
+    fn instance(&self) -> Vec<ParticleInstance>;
 }
-impl ToRaw for Vec<Particle> {
-    fn to_raw(&self) -> Vec<ParticleInstance> {
-        self.iter().map(Particle::to_raw).collect::<Vec<ParticleInstance>>()
+impl Instance for Vec<Particle> {
+    fn instance(&self) -> Vec<ParticleInstance> {
+        self.iter().map(Particle::instance).collect::<Vec<ParticleInstance>>()
     }
 }
 
@@ -37,7 +37,7 @@ impl Particle {
         self.vel += Vector3::new(0.0, gravity * self.mass, 0.0) * delta * 0.5;
         self.pos += self.vel * delta;
     }
-    pub fn to_raw(&self) -> ParticleInstance {
+    pub fn instance(&self) -> ParticleInstance {
         ParticleInstance {
             model: (
                 Matrix4::from_translation(self.pos) *

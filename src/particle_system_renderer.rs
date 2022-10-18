@@ -13,36 +13,44 @@ use crate::particle::{
     ParticleMesh
 };
 
-/// Defines model of each particle.
-#[derive(Default)]
-pub enum ParticleMeshType {
-    #[default]
-    Cube,
-    Custom(PathBuf),
-}
+use crate::ParticleSystemRendererDescriptor;
 
-const VIEW_PROJ: [[f32; 4]; 4] = [
-    [1.0, 0.0, 0.0, 0.0],
-    [0.0, 1.0, 0.0, 0.0],
-    [0.0, 0.0, 1.0, 0.0],
-    [0.0, 0.0, 0.0, 0.0],
-];
+#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+struct ViewData {
+    view_proj: [[f32; 4]; 4],
+    view_pos: [f32; 4],
+}
+impl ViewData {
+    fn new() -> Self {
+        Self {
+            view_proj: [
+                [1.0, 0.0, 0.0, 0.0],
+                [0.0, 1.0, 0.0, 0.0],
+                [0.0, 0.0, 1.0, 0.0],
+                [0.0, 0.0, 0.0, 0.0],
+            ],
+            view_pos: [0.0, 1.0, 0.0, 0.0],
+        }
+        
+    }
+}
 
 pub struct ParticleSystemRenderer {
     pub pipeline:    wgpu::RenderPipeline,
     pub bind_groups: Vec<wgpu::BindGroup>,
-    pub view_proj:   wgpu::Buffer,
+    pub view_data:   wgpu::Buffer,
     pub mesh:        ParticleMesh,
 }
 impl ParticleSystemRenderer {
     pub fn new(
         device: &wgpu::Device, 
-        queue: &wgpu::Queue, 
+        queue:  &wgpu::Queue, 
         config: &wgpu::SurfaceConfiguration,
-        desc: &ParticleSystemRendererDescriptor,
+        desc:   &ParticleSystemRendererDescriptor,
     ) -> BrumousResult<Self> {
         let texture = if let Some(tex) = desc.texture {
-            Texture::new(device, queue, tex)?
+            Texture::new(device, queue, Path::new(tex))?
         }
         else {
             Texture::new(device, queue, Path::new("image/default.png"))?
@@ -50,10 +58,10 @@ impl ParticleSystemRenderer {
 
         let mesh = ParticleMesh::new(device, &desc.mesh_type)?;
 
-        let view_proj = device.create_buffer_init(
+        let view_data = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
-                label: Some("Camera Buffer"),
-                contents: bytemuck::cast_slice(&[VIEW_PROJ]),
+                label: Some("View Projection Buffer"),
+                contents: bytemuck::cast_slice(&[ViewData::new()]),
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             }
         );
@@ -61,11 +69,11 @@ impl ParticleSystemRenderer {
         let bind_layouts = [
             &device.create_bind_group_layout(
                 &wgpu::BindGroupLayoutDescriptor {
-                    label: Some("Camera Bind Group Layout"),
+                    label: Some("View Data Bind Group Layout"),
                     entries: &[
                         wgpu::BindGroupLayoutEntry {
                             binding: 0,
-                            visibility: wgpu::ShaderStages::VERTEX,
+                            visibility: wgpu::ShaderStages::VERTEX | wgpu::ShaderStages::FRAGMENT,
                             ty: wgpu::BindingType::Buffer {
                                 ty: wgpu::BufferBindingType::Uniform,
                                 has_dynamic_offset: false,
@@ -113,7 +121,7 @@ impl ParticleSystemRenderer {
                     entries: &[
                         wgpu::BindGroupEntry {
                             binding: 0,
-                            resource: view_proj.as_entire_binding(),
+                            resource: view_data.as_entire_binding(),
                         }
                     ]
                 }
@@ -207,22 +215,10 @@ impl ParticleSystemRenderer {
             Self {
                 pipeline,
                 bind_groups,
-                view_proj,
+                view_data,
                 mesh,
             }
         )
     }
 }
 
-pub struct ParticleSystemRendererDescriptor<'a> {
-    texture: Option<&'a Path>,
-    mesh_type: ParticleMeshType,
-}
-impl<'a> Default for ParticleSystemRendererDescriptor<'a> {
-    fn default() -> Self {
-        Self {
-            texture: Some(Path::new("image/default.png")),
-            mesh_type: ParticleMeshType::default(),
-        }
-    }
-}
