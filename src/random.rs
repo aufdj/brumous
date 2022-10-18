@@ -1,7 +1,7 @@
 use std::ops::Range;
 use cgmath::{Vector3, Vector4, Quaternion};
 
-use crate::Spread;
+use crate::MVar;
 
 /// Constant for converting u64 numbers to f64s in [0,1).
 /// It is the maximum value of mantissa plus one.
@@ -29,33 +29,33 @@ impl Randf32 {
         self.state ^= self.state << 17;
         ((self.state >> 11) as f64 / F64_MANTISSA) as f32
     }
-    pub fn in_range(&mut self, range: Range<f32>) -> f32 {
+    pub fn next_in(&mut self, range: Range<f32>) -> f32 {
         (range.end - range.start) * self.next() + range.start
     }
-    pub fn spread(&mut self, spread: &Spread) -> f32 {
-        spread.mean + self.in_range(-1.0..1.0) * spread.variance
+    pub fn in_variance(&mut self, mvar: &MVar) -> f32 {
+        mvar.0 + self.next_in(-1.0..1.0) * mvar.1
     }
-    pub fn vec3_spread(&mut self, spread: &[Spread; 3]) -> Vector3<f32> {
+    pub fn vec3_in_variance(&mut self, mvar: &[MVar; 3]) -> Vector3<f32> {
         Vector3::new(
-            spread[0].mean + self.in_range(-1.0..1.0) * spread[0].variance,
-            spread[1].mean + self.in_range(-1.0..1.0) * spread[1].variance,
-            spread[2].mean + self.in_range(-1.0..1.0) * spread[2].variance,
+            mvar[0].0 + self.next_in(-1.0..1.0) * mvar[0].1,
+            mvar[1].0 + self.next_in(-1.0..1.0) * mvar[1].1,
+            mvar[2].0 + self.next_in(-1.0..1.0) * mvar[2].1,
         )
     }
-    pub fn vec4_spread(&mut self, spread: &[Spread; 4]) -> Vector4<f32> {
+    pub fn vec4_in_variance(&mut self, mvar: &[MVar; 4]) -> Vector4<f32> {
         Vector4::new(
-            spread[0].mean + self.in_range(-1.0..1.0) * spread[0].variance,
-            spread[1].mean + self.in_range(-1.0..1.0) * spread[1].variance,
-            spread[2].mean + self.in_range(-1.0..1.0) * spread[2].variance,
-            spread[3].mean + self.in_range(-1.0..1.0) * spread[3].variance,
+            mvar[0].0 + self.next_in(-1.0..1.0) * mvar[0].1,
+            mvar[1].0 + self.next_in(-1.0..1.0) * mvar[1].1,
+            mvar[2].0 + self.next_in(-1.0..1.0) * mvar[2].1,
+            mvar[3].0 + self.next_in(-1.0..1.0) * mvar[3].1,
         )
     }
-    pub fn quat_spread(&mut self, spread: &[Spread; 4]) -> Quaternion<f32> {
+    pub fn quat_in_variance(&mut self, mvar: &[MVar; 4]) -> Quaternion<f32> {
         Quaternion::new(
-            spread[0].mean + self.in_range(-1.0..1.0) * spread[0].variance,
-            spread[1].mean + self.in_range(-1.0..1.0) * spread[1].variance,
-            spread[2].mean + self.in_range(-1.0..1.0) * spread[2].variance,
-            spread[3].mean + self.in_range(-1.0..1.0) * spread[3].variance,
+            mvar[0].0 + self.next_in(-1.0..1.0) * mvar[0].1,
+            mvar[1].0 + self.next_in(-1.0..1.0) * mvar[1].1,
+            mvar[2].0 + self.next_in(-1.0..1.0) * mvar[2].1,
+            mvar[3].0 + self.next_in(-1.0..1.0) * mvar[3].1,
         )
     }
 }

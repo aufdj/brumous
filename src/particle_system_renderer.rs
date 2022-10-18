@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::io::Read;
 
 use wgpu::util::DeviceExt;
@@ -32,7 +32,6 @@ impl ViewData {
             ],
             view_pos: [0.0, 1.0, 0.0, 0.0],
         }
-        
     }
 }
 
@@ -45,9 +44,9 @@ pub struct ParticleSystemRenderer {
 impl ParticleSystemRenderer {
     pub fn new(
         device: &wgpu::Device, 
-        queue:  &wgpu::Queue, 
+        queue: &wgpu::Queue, 
         config: &wgpu::SurfaceConfiguration,
-        desc:   &ParticleSystemRendererDescriptor,
+        desc: &ParticleSystemRendererDescriptor,
     ) -> BrumousResult<Self> {
         let texture = if let Some(tex) = desc.texture {
             Texture::new(device, queue, Path::new(tex))?

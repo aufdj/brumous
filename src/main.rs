@@ -33,24 +33,26 @@ impl State {
         let camera = Camera::new(&gpu.config, &gpu.device);
         let depth_texture = DepthTexture::new(&gpu.device, &gpu.config, "Depth Texture");
 
-        let system = match gpu.device.create_particle_system_with_renderer(
-            &gpu.config,
-            &gpu.queue,
+        let mut system = gpu.device.create_particle_system(
             &brumous::ParticleSystemDescriptor {
                 bounds: brumous::ParticleSystemBounds::default(),
                 max: 500,
                 rate: 2,
                 ..Default::default()
             },
+        ).unwrap();
+
+        let renderer = gpu.device.create_particle_system_renderer(
+            &gpu.queue,
+            &gpu.config,
             &brumous::ParticleSystemRendererDescriptor {
                 texture: Some("image/metal.jpg"),
                 ..Default::default()
             }
-        ) {
-            Ok(sys) => sys,
-            Err(e) => panic!("{e}"),
-        };
+        ).unwrap();
 
+        system.set_renderer(renderer);
+    
         Self {
             gpu,
             camera,

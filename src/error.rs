@@ -4,6 +4,7 @@ use std::path::PathBuf;
 
 pub type BrumousResult<T> = Result<T, BrumousError>;
 
+#[derive(Debug)]
 pub enum BrumousError {
     IoError(io::Error),
     ObjParseError(PathBuf, usize),

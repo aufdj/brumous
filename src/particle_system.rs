@@ -8,24 +8,24 @@ use crate::particle_system_renderer::ParticleSystemRenderer;
 use crate::ParticleSystemRendererDescriptor;
 use crate::ParticleSystemDescriptor;
 use crate::ParticleSystemBounds;
-use crate::Spread;
+use crate::MVar;
 
 use wgpu::util::DeviceExt;
 use cgmath::Vector3;
 
 /// A ParticleSystem manages a set of particles.
 pub struct ParticleSystem {
-    particles:    Vec<Particle>,
-    particle_buf: wgpu::Buffer,
-    search_pos:   usize,
-    rate:         usize,
-    position:     Vector3<f32>,
-    name:         String,
-    life:         f32,
-    gravity:      f32,
-    bounds:       ParticleSystemBounds,
-    rand:         Randf32,
-    pub renderer: Option<ParticleSystemRenderer>,
+    particles:  Vec<Particle>,
+    buf:        wgpu::Buffer,
+    search_pos: usize,
+    rate:       usize,
+    position:   Vector3<f32>,
+    name:       String,
+    life:       f32,
+    gravity:    f32,
+    bounds:     ParticleSystemBounds,
+    rand:       Randf32,
+    renderer:   Option<ParticleSystemRenderer>,
 }
 impl ParticleSystem {
     pub fn new(
@@ -34,7 +34,7 @@ impl ParticleSystem {
     ) -> BrumousResult<Self> {
         let particles = vec![Particle::default(); desc.max];
 
-        let particle_buf = device.create_buffer_init(
+        let buf = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: Some("Instance Buffer"),
                 contents: bytemuck::cast_slice(&particles.instance()),
@@ -45,7 +45,7 @@ impl ParticleSystem {
         Ok(
             Self {
                 particles,
-                particle_buf,
+                buf,
                 search_pos:   0,
                 rate:         desc.rate,
                 position:     desc.pos,
@@ -67,7 +67,7 @@ impl ParticleSystem {
     ) -> BrumousResult<Self> {
         let particles = vec![Particle::default(); sys_desc.max];
 
-        let particle_buf = device.create_buffer_init(
+        let buf = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: Some("Instance Buffer"),
                 contents: bytemuck::cast_slice(&particles.instance()),
@@ -82,15 +82,15 @@ impl ParticleSystem {
         Ok(
             Self {
                 particles,
-                particle_buf,
-                search_pos:    0,
-                rate:          sys_desc.rate,
-                position:      sys_desc.pos,
-                name:          sys_desc.name.to_string(),
-                life:          sys_desc.life,
-                gravity:       sys_desc.gravity,
-                bounds:        sys_desc.bounds.clone(),
-                rand:          Randf32::new(),
+                buf,
+                search_pos: 0,
+                rate:       sys_desc.rate,
+                position:   sys_desc.pos,
+                name:       sys_desc.name.to_string(),
+                life:       sys_desc.life,
+                gravity:    sys_desc.gravity,
+                bounds:     sys_desc.bounds,
+                rand:       Randf32::new(),
                 renderer,
             }
         )
@@ -115,13 +115,13 @@ impl ParticleSystem {
     /// Create new particle 
     fn new_particle(&mut self) -> Particle {
         Particle {
-            pos:   self.rand.vec3_spread(&self.bounds.spawn_range) + self.position,
-            vel:   self.rand.vec3_spread(&self.bounds.init_vel), 
-            rot:   self.rand.quat_spread(&self.bounds.rot), 
-            color: self.rand.vec4_spread(&self.bounds.color),
-            scale: self.rand.spread(&self.bounds.scale),
-            life:  self.rand.spread(&self.bounds.life), 
-            mass:  self.rand.spread(&self.bounds.mass),
+            pos:   self.rand.vec3_in_variance(&self.bounds.spawn_range) + self.position,
+            vel:   self.rand.vec3_in_variance(&self.bounds.init_vel), 
+            rot:   self.rand.quat_in_variance(&self.bounds.rot), 
+            color: self.rand.vec4_in_variance(&self.bounds.color),
+            scale: self.rand.in_variance(&self.bounds.scale),
+            life:  self.rand.in_variance(&self.bounds.life), 
+            mass:  self.rand.in_variance(&self.bounds.mass),
         }
     }
     /// Spawn new particles and update existing particles, should be called every frame.
@@ -140,7 +140,7 @@ impl ParticleSystem {
             if particle.life > 0.0 {
                 particle.update(delta, self.gravity);
                 queue.write_buffer(
-                    &self.particle_buf,
+                    &self.buf,
                     index as u64 * ParticleInstance::size(),
                     bytemuck::cast_slice(&[particle.instance()])
                 );
@@ -152,7 +152,7 @@ impl ParticleSystem {
     }
     /// Clear particle system's particle buffer.
     pub fn clear(&mut self, encoder: &mut wgpu::CommandEncoder) {
-        encoder.clear_buffer(&self.particle_buf, 0, self.particle_buf_size());
+        encoder.clear_buffer(&self.buf, 0, self.particle_buf_size());
     }
     /// Return number of particles in particle system.
     pub fn particle_count(&self) -> u32 {
@@ -160,7 +160,7 @@ impl ParticleSystem {
     }
     /// Return reference to particle buffer.
     pub fn particle_buf(&self) -> &wgpu::Buffer {
-        &self.particle_buf
+        &self.buf
     }
     /// Return particle buffer size in bytes.
     pub fn particle_buf_size(&self) -> Option<NonZeroU64> {
@@ -169,7 +169,7 @@ impl ParticleSystem {
     /// Set max number of particles.
     pub fn set_max_particles(&mut self, max: usize, device: &wgpu::Device) {
         self.particles.resize(max, Particle::default());
-        self.particle_buf = device.create_buffer_init(
+        self.buf = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: Some("Particle Buffer"),
                 contents: bytemuck::cast_slice(&self.particles.instance()),
@@ -194,27 +194,27 @@ impl ParticleSystem {
         self.name = name;
     }
     /// Set minimum and maximum particle mass.
-    pub fn set_mass_spread(&mut self, mass: Spread) {
+    pub fn set_mass_spread(&mut self, mass: MVar) {
         self.bounds.mass = mass;
     }
     /// Set minimum and maximum initial particle velocity.
-    pub fn set_initial_velocity_spread(&mut self, init_vel: [Spread; 3]) {
+    pub fn set_initial_velocity_spread(&mut self, init_vel: [MVar; 3]) {
         self.bounds.init_vel = init_vel;
     }
     /// Set dimensions of area in which particles spawn.
-    pub fn set_spawn_range(&mut self, spawn_range: [Spread; 3]) {
+    pub fn set_spawn_range(&mut self, spawn_range: [MVar; 3]) {
         self.bounds.spawn_range = spawn_range;
     }
     /// Set minimum and maximum particle lifetimes.
-    pub fn set_life_spread(&mut self, life: Spread) {
+    pub fn set_life_spread(&mut self, life: MVar) {
         self.bounds.life = life;
     }
     /// Set minimum and maximum particle RGBA values.
-    pub fn set_color_spread(&mut self, color: [Spread; 4]) {
+    pub fn set_color_spread(&mut self, color: [MVar; 4]) {
         self.bounds.color = color;
     }
     /// Set minimum and maximum particle size.
-    pub fn set_scale_spread(&mut self, scale: Spread) {
+    pub fn set_scale_spread(&mut self, scale: MVar) {
         self.bounds.scale = scale;
     }
     pub fn set_view_proj(&mut self, queue: &wgpu::Queue, vp: [[f32; 4]; 4]) {
@@ -226,5 +226,11 @@ impl ParticleSystem {
         if let Some(renderer) = &self.renderer {
             queue.write_buffer(&renderer.view_data, 64, bytemuck::cast_slice(&[vp]));
         }
+    }
+    pub fn set_renderer(&mut self, renderer: ParticleSystemRenderer) {
+        self.renderer = Some(renderer);
+    }
+    pub fn renderer(&self) -> Option<&ParticleSystemRenderer> {
+        self.renderer.as_ref()
     }
 }

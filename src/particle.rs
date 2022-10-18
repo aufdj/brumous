@@ -122,7 +122,7 @@ impl ParticleMesh {
     pub fn new(device: &wgpu::Device, mesh_type: &ParticleMeshType) -> BrumousResult<Self> {
         match mesh_type {
             ParticleMeshType::Custom(path) => {
-                read_obj(device, &path)
+                read_obj(device, Path::new(path))
             },
             ParticleMeshType::Cube => {
                 read_obj(device, Path::new("obj/cube.obj"))
