@@ -2,7 +2,9 @@ mod particle;
 pub mod texture;
 pub mod camera;
 mod random;
-mod vec;
+mod vector;
+mod matrix;
+mod quaternion;
 pub mod gpu;
 pub mod delta;
 mod bufio;
@@ -11,13 +13,10 @@ pub mod error;
 pub mod particle_system_renderer;
 pub mod particle_system;
 
-use std::path::PathBuf;
-
 use crate::error::BrumousResult;
 use crate::particle_system::ParticleSystem;
 use crate::particle_system_renderer::ParticleSystemRenderer;
-
-use cgmath::Vector3;
+use crate::vector::Vec3;
 
 /// Creates a new particle system.
 pub trait CreateParticleSystem {
@@ -106,10 +105,10 @@ impl<'a> Default for ParticleSystemRendererDescriptor<'a> {
 pub struct ParticleSystemDescriptor<'a> {
     pub max:     usize,
     pub rate:    usize,
-    pub pos:     Vector3<f32>,
+    pub pos:     Vec3,
     pub name:    &'a str,
     pub life:    f32,
-    pub gravity: f32,
+    pub gravity: Vec3,
     pub bounds:  ParticleSystemBounds,
 }
 impl<'a> Default for ParticleSystemDescriptor<'a> {
@@ -117,10 +116,10 @@ impl<'a> Default for ParticleSystemDescriptor<'a> {
         Self {
             max:     500,
             rate:    1,
-            pos:     Vector3::new(0.0, 0.0, 0.0),
+            pos:     Vec3::zero(),
             name:    "Particle System",
             life:    1000.0,
-            gravity: -9.81,
+            gravity: Vec3::new(0.0, -9.81, 0.0),
             bounds:  ParticleSystemBounds::default(),
         }
     }
@@ -128,7 +127,7 @@ impl<'a> Default for ParticleSystemDescriptor<'a> {
 
 /// Mean and variance.
 #[derive(Copy, Clone)]
-pub struct MVar(f32, f32);
+pub struct MVar(pub f32, pub f32);
 
 /// Describes the range of possible values of a particle's traits.
 #[derive(Copy, Clone)]
@@ -149,7 +148,7 @@ impl Default for ParticleSystemBounds {
             init_vel:    [MVar(0.0, 0.2), MVar(0.7, 0.2), MVar(0.0, 0.2)],
             rot:         [MVar(0.0, 0.0); 4],
             color:       [MVar(0.5, 0.5); 4],
-            mass:        MVar(0.5, 0.1),
+            mass:        MVar(2.0, 0.1),
             scale:       MVar(0.007, 0.002),
         }
     }

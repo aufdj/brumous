@@ -1,7 +1,8 @@
 use std::ops::Range;
-use cgmath::{Vector3, Vector4, Quaternion};
 
 use crate::MVar;
+use crate::vector::{Vec3, Vec4};
+use crate::quaternion::Quaternion;
 
 /// Constant for converting u64 numbers to f64s in [0,1).
 /// It is the maximum value of mantissa plus one.
@@ -35,22 +36,22 @@ impl Randf32 {
     pub fn in_variance(&mut self, mvar: &MVar) -> f32 {
         mvar.0 + self.next_in(-1.0..1.0) * mvar.1
     }
-    pub fn vec3_in_variance(&mut self, mvar: &[MVar; 3]) -> Vector3<f32> {
-        Vector3::new(
+    pub fn vec3_in_variance(&mut self, mvar: &[MVar; 3]) -> Vec3 {
+        Vec3::new(
             mvar[0].0 + self.next_in(-1.0..1.0) * mvar[0].1,
             mvar[1].0 + self.next_in(-1.0..1.0) * mvar[1].1,
             mvar[2].0 + self.next_in(-1.0..1.0) * mvar[2].1,
         )
     }
-    pub fn vec4_in_variance(&mut self, mvar: &[MVar; 4]) -> Vector4<f32> {
-        Vector4::new(
+    pub fn vec4_in_variance(&mut self, mvar: &[MVar; 4]) -> Vec4 {
+        Vec4::new(
             mvar[0].0 + self.next_in(-1.0..1.0) * mvar[0].1,
             mvar[1].0 + self.next_in(-1.0..1.0) * mvar[1].1,
             mvar[2].0 + self.next_in(-1.0..1.0) * mvar[2].1,
             mvar[3].0 + self.next_in(-1.0..1.0) * mvar[3].1,
         )
     }
-    pub fn quat_in_variance(&mut self, mvar: &[MVar; 4]) -> Quaternion<f32> {
+    pub fn quat_in_variance(&mut self, mvar: &[MVar; 4]) -> Quaternion {
         Quaternion::new(
             mvar[0].0 + self.next_in(-1.0..1.0) * mvar[0].1,
             mvar[1].0 + self.next_in(-1.0..1.0) * mvar[1].1,

@@ -1,12 +1,14 @@
 use std::mem;
 use std::path::Path;
 
-use cgmath::{Vector3, Vector4, Matrix3, Matrix4, Quaternion};
 use bytemuck;
 
 use crate::ParticleMeshType;
 use crate::obj::read_obj;
 use crate::error::BrumousResult;
+use crate::vector::{Vec3, Vec4};
+use crate::matrix::{Mat3x3, Mat4x4};
+use crate::quaternion::Quaternion;
 
 
 pub trait Instance {
@@ -24,27 +26,28 @@ pub trait VertexLayout {
 
 #[derive(Clone)]
 pub struct Particle {
-    pub pos:   Vector3<f32>,
-    pub vel:   Vector3<f32>,
-    pub rot:   Quaternion<f32>,
+    pub pos:   Vec3,
+    pub vel:   Vec3,
+    pub rot:   Quaternion,
     pub scale: f32,
     pub life:  f32,
     pub mass:  f32,
-    pub color: Vector4<f32>,
+    pub color: Vec4,
 }
 impl Particle {
-    pub fn update(&mut self, delta: f32, gravity: f32) {
-        self.vel += Vector3::new(0.0, gravity * self.mass, 0.0) * delta * 0.5;
+    pub fn update(&mut self, delta: f32, gravity: Vec3, forces: &[Vec3]) {
+        let acc = (/*forces.iter().sum::<Vec3>() + */gravity) / self.mass;
+        self.vel += acc * delta * 0.5;
         self.pos += self.vel * delta;
     }
     pub fn instance(&self) -> ParticleInstance {
         ParticleInstance {
             model: (
-                Matrix4::from_translation(self.pos) *
-                Matrix4::from(self.rot) *
-                Matrix4::from_scale(self.scale)
+                Mat4x4::from_translation(self.pos) *
+                Mat4x4::from(self.rot) *
+                Mat4x4::from_scale(self.scale)
             ).into(),
-            normal: Matrix3::from(self.rot).into(),
+            normal: Mat3x3::from(self.rot).into(),
             color: self.color.into(),
         }
     }
@@ -52,13 +55,13 @@ impl Particle {
 impl Default for Particle {
     fn default() -> Self {
         Self {
-            pos:   Vector3::new(0.0, -100.0, 0.0), 
+            pos:   Vec3::new(0.0, -100.0, 0.0),
             rot:   Quaternion::new(0.0, 0.0, 0.0, 0.0), 
-            vel:   Vector3::new(0.0, 0.0, 0.0), 
+            vel:   Vec3::zero(), 
             scale: 0.0,
             life:  0.0, 
             mass:  0.0,
-            color: Vector4::new(0.0, 0.0, 0.0, 0.0),
+            color: Vec4::zero(),
         }
     }
 }

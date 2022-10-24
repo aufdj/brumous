@@ -14,6 +14,7 @@ use brumous::delta::Delta;
 
 use brumous::CreateParticleSystem;
 use brumous::DrawParticleSystem;
+use brumous::MVar;
 
 fn main() {
     pollster::block_on(run());
@@ -33,15 +34,6 @@ impl State {
         let camera = Camera::new(&gpu.config, &gpu.device);
         let depth_texture = DepthTexture::new(&gpu.device, &gpu.config, "Depth Texture");
 
-        let mut system = gpu.device.create_particle_system(
-            &brumous::ParticleSystemDescriptor {
-                bounds: brumous::ParticleSystemBounds::default(),
-                max: 500,
-                rate: 2,
-                ..Default::default()
-            },
-        ).unwrap();
-
         let renderer = gpu.device.create_particle_system_renderer(
             &gpu.queue,
             &gpu.config,
@@ -51,7 +43,19 @@ impl State {
             }
         ).unwrap();
 
-        system.set_renderer(renderer);
+        let system = gpu.device.create_particle_system(
+            &brumous::ParticleSystemDescriptor {
+                bounds: brumous::ParticleSystemBounds {
+                    scale: MVar(0.005, 0.0005),
+                    mass: MVar(1.5, 0.005),
+                    ..Default::default()
+                },
+                max: 1000,
+                rate: 3,
+                gravity: [1.0, 1.0, 0.0].into(),
+                ..Default::default()
+            },
+        ).unwrap().with_renderer(renderer);
     
         Self {
             gpu,

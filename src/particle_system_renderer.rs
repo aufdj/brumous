@@ -12,8 +12,9 @@ use crate::particle::{
     VertexLayout,
     ParticleMesh
 };
-
 use crate::ParticleSystemRendererDescriptor;
+use crate::matrix::Mat4x4;
+use crate::vector::Vec4;
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -24,13 +25,8 @@ struct ViewData {
 impl ViewData {
     fn new() -> Self {
         Self {
-            view_proj: [
-                [1.0, 0.0, 0.0, 0.0],
-                [0.0, 1.0, 0.0, 0.0],
-                [0.0, 0.0, 1.0, 0.0],
-                [0.0, 0.0, 0.0, 0.0],
-            ],
-            view_pos: [0.0, 1.0, 0.0, 0.0],
+            view_proj: Mat4x4::identity().into(),
+            view_pos: Vec4::unit_y().into(),
         }
     }
 }
@@ -176,7 +172,7 @@ impl ParticleSystemRenderer {
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &shader,
-                    entry_point: "fs_texture",
+                    entry_point: "fs_main",
                     targets: &[
                         Some(wgpu::ColorTargetState {
                             format: config.format,

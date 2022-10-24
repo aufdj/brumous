@@ -62,32 +62,50 @@ fn vs_main(vertex: VertexInput, particle: ParticleInput) -> VertexOutput {
 }
 
 @fragment
-fn fs_color(in: VertexOutput) -> @location(0) vec4<f32> {
-    return in.color;
+fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+    let light_pos = vec3<f32>(0.0, 1.0, 0.0);
+    let light_col = vec3<f32>(1.0, 1.0, 1.0);
+
+    let ambient_strength = 0.1;
+    let ambient_color = light_col * ambient_strength;
+
+    let light_dir = normalize(light_pos - in.world_pos);
+    let diffuse_strength = max(dot(in.world_norm, light_dir), 0.0);
+    let diffuse_color = light_col * diffuse_strength;
+
+    let view_dir = normalize(camera.view_pos.xyz - in.world_pos);
+    let reflect_dir = reflect(-light_dir, in.world_norm);
+
+    let specular_strength = pow(max(dot(view_dir, reflect_dir), 0.0), 32.0);
+    let specular_color = specular_strength * light_col;
+
+    let result = (ambient_color + diffuse_color + specular_color) * in.color.xyz;
+
+    return vec4<f32>(result, in.color.a);
 }
 
 
 @fragment
 fn fs_texture(in: VertexOutput) -> @location(0) vec4<f32> {
-    return textureSample(tx, smpl, in.uv);
-    // let light_pos = vec3<f32>(0.0, 1.0, 0.0);
-    // let light_col = vec3<f32>(1.0, 1.0, 1.0);
-    // let obj_col: vec4<f32> = in.color;
+    // return textureSample(tx, smpl, in.uv);
+    let light_pos = vec3<f32>(0.0, 1.0, 0.0);
+    let light_col = vec3<f32>(1.0, 1.0, 1.0);
+    let obj_col: vec4<f32> = textureSample(tx, smpl, in.uv);
 
-    // let ambient_strength = 0.1;
-    // let ambient_color = light_col * ambient_strength;
+    let ambient_strength = 0.1;
+    let ambient_color = light_col * ambient_strength;
 
-    // let light_dir = normalize(light_pos - in.world_pos);
-    // let diffuse_strength = max(dot(in.world_norm, light_dir), 0.0);
-    // let diffuse_color = light_col * diffuse_strength;
+    let light_dir = normalize(light_pos - in.world_pos);
+    let diffuse_strength = max(dot(in.world_norm, light_dir), 0.0);
+    let diffuse_color = light_col * diffuse_strength;
 
-    // let view_dir = normalize(camera.view_pos.xyz - in.world_pos);
-    // let reflect_dir = reflect(-light_dir, in.world_norm);
+    let view_dir = normalize(camera.view_pos.xyz - in.world_pos);
+    let reflect_dir = reflect(-light_dir, in.world_norm);
 
-    // let specular_strength = pow(max(dot(view_dir, reflect_dir), 0.0), 32.0);
-    // let specular_color = specular_strength * light_col;
+    let specular_strength = pow(max(dot(view_dir, reflect_dir), 0.0), 32.0);
+    let specular_color = specular_strength * light_col;
 
-    // let result = (ambient_color + diffuse_color + specular_color) * obj_col.xyz;
+    let result = (ambient_color + diffuse_color + specular_color) * obj_col.xyz;
 
-    // return vec4<f32>(result, obj_col.a);
+    return vec4<f32>(result, obj_col.a);
 }

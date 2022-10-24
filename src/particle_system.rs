@@ -11,7 +11,7 @@ use crate::ParticleSystemBounds;
 use crate::MVar;
 
 use wgpu::util::DeviceExt;
-use cgmath::Vector3;
+use crate::vector::Vec3;
 
 /// A ParticleSystem manages a set of particles.
 pub struct ParticleSystem {
@@ -19,18 +19,19 @@ pub struct ParticleSystem {
     buf:        wgpu::Buffer,
     search_pos: usize,
     rate:       usize,
-    position:   Vector3<f32>,
+    position:   Vec3,
     name:       String,
     life:       f32,
-    gravity:    f32,
+    gravity:    Vec3,
     bounds:     ParticleSystemBounds,
+    forces:     Vec<Vec3>,
     rand:       Randf32,
     renderer:   Option<ParticleSystemRenderer>,
 }
 impl ParticleSystem {
     pub fn new(
         device: &wgpu::Device,
-        desc:   &ParticleSystemDescriptor, 
+        desc: &ParticleSystemDescriptor, 
     ) -> BrumousResult<Self> {
         let particles = vec![Particle::default(); desc.max];
 
@@ -52,17 +53,24 @@ impl ParticleSystem {
                 name:         desc.name.to_string(),
                 life:         desc.life,
                 gravity:      desc.gravity,
-                bounds:       desc.bounds.clone(),
+                bounds:       desc.bounds,
+                forces:       Vec::new(),
                 rand:         Randf32::new(),
                 renderer:     None,
             }
         )
     }
+
+    pub fn with_renderer(mut self, renderer: ParticleSystemRenderer) -> Self {
+        self.renderer = Some(renderer);
+        self
+    }
+
     pub fn new_with_renderer(
-        device:    &wgpu::Device,
-        config:    &wgpu::SurfaceConfiguration,
-        queue:     &wgpu::Queue,
-        sys_desc:  &ParticleSystemDescriptor,
+        device: &wgpu::Device,
+        config: &wgpu::SurfaceConfiguration,
+        queue: &wgpu::Queue,
+        sys_desc: &ParticleSystemDescriptor,
         rend_desc: &ParticleSystemRendererDescriptor, 
     ) -> BrumousResult<Self> {
         let particles = vec![Particle::default(); sys_desc.max];
@@ -90,11 +98,13 @@ impl ParticleSystem {
                 life:       sys_desc.life,
                 gravity:    sys_desc.gravity,
                 bounds:     sys_desc.bounds,
+                forces:     Vec::new(),
                 rand:       Randf32::new(),
                 renderer,
             }
         )
     }
+
     fn find_unused_particle(&mut self) -> usize {
         for i in self.search_pos..self.particles.len() {
             if self.particles[i].life < 0.0 {
@@ -112,6 +122,7 @@ impl ParticleSystem {
         self.search_pos = 0;
         0
     }
+
     /// Create new particle 
     fn new_particle(&mut self) -> Particle {
         Particle {
@@ -124,6 +135,7 @@ impl ParticleSystem {
             mass:  self.rand.in_variance(&self.bounds.mass),
         }
     }
+
     /// Spawn new particles and update existing particles, should be called every frame.
     pub fn update(&mut self, delta: Duration, queue: &wgpu::Queue) {
         let delta = delta.as_millis() as f32 / 1000.0;
@@ -138,7 +150,7 @@ impl ParticleSystem {
         for (index, particle) in self.particles.iter_mut().enumerate() {
             particle.life -= delta;
             if particle.life > 0.0 {
-                particle.update(delta, self.gravity);
+                particle.update(delta, self.gravity, &self.forces);
                 queue.write_buffer(
                     &self.buf,
                     index as u64 * ParticleInstance::size(),
@@ -150,22 +162,27 @@ impl ParticleSystem {
             self.search_pos = self.particles.len() - 1;
         }
     }
+
     /// Clear particle system's particle buffer.
     pub fn clear(&mut self, encoder: &mut wgpu::CommandEncoder) {
         encoder.clear_buffer(&self.buf, 0, self.particle_buf_size());
     }
+
     /// Return number of particles in particle system.
     pub fn particle_count(&self) -> u32 {
         self.particles.len() as u32
     }
+
     /// Return reference to particle buffer.
     pub fn particle_buf(&self) -> &wgpu::Buffer {
         &self.buf
     }
+
     /// Return particle buffer size in bytes.
     pub fn particle_buf_size(&self) -> Option<NonZeroU64> {
         NonZeroU64::new(self.particles.len() as u64 * ParticleInstance::size())
     }
+
     /// Set max number of particles.
     pub fn set_max_particles(&mut self, max: usize, device: &wgpu::Device) {
         self.particles.resize(max, Particle::default());
@@ -177,60 +194,75 @@ impl ParticleSystem {
             }
         );
     }
+
     /// Set position of particle system.
     pub fn set_position(&mut self, pos: [f32; 3]) {
-        self.position = Vector3::new(pos[0], pos[1], pos[2]);
+        self.position = Vec3::new(pos[0], pos[1], pos[2]);
     }
+
     /// Set number of particles spawned per frame.
     pub fn set_rate(&mut self, rate: usize) {
         self.rate = rate;
     }
+
     /// Set gravity of particle system.
-    pub fn set_gravity(&mut self, gravity: f32) {
-        self.gravity = gravity;
+    pub fn set_gravity(&mut self, gravity: [f32; 3]) {
+        self.gravity = Vec3::new(gravity[0], gravity[1], gravity[2]);
     }
+
     /// Set name of particle system.
     pub fn set_name(&mut self, name: String) {
         self.name = name;
     }
+
     /// Set minimum and maximum particle mass.
-    pub fn set_mass_spread(&mut self, mass: MVar) {
+    pub fn set_mass_variance(&mut self, mass: MVar) {
         self.bounds.mass = mass;
     }
+
     /// Set minimum and maximum initial particle velocity.
-    pub fn set_initial_velocity_spread(&mut self, init_vel: [MVar; 3]) {
+    pub fn set_initial_velocity_variance(&mut self, init_vel: [MVar; 3]) {
         self.bounds.init_vel = init_vel;
     }
+
     /// Set dimensions of area in which particles spawn.
-    pub fn set_spawn_range(&mut self, spawn_range: [MVar; 3]) {
+    pub fn set_spawn_variance(&mut self, spawn_range: [MVar; 3]) {
         self.bounds.spawn_range = spawn_range;
     }
+
     /// Set minimum and maximum particle lifetimes.
-    pub fn set_life_spread(&mut self, life: MVar) {
+    pub fn set_life_variance(&mut self, life: MVar) {
         self.bounds.life = life;
     }
+
     /// Set minimum and maximum particle RGBA values.
-    pub fn set_color_spread(&mut self, color: [MVar; 4]) {
+    pub fn set_color_variance(&mut self, color: [MVar; 4]) {
         self.bounds.color = color;
     }
+
     /// Set minimum and maximum particle size.
-    pub fn set_scale_spread(&mut self, scale: MVar) {
+    pub fn set_scale_variance(&mut self, scale: MVar) {
         self.bounds.scale = scale;
     }
+
+    pub fn apply_force(&mut self, force: [f32; 3]) {
+        self.forces.push(force.into());
+    }
+
     pub fn set_view_proj(&mut self, queue: &wgpu::Queue, vp: [[f32; 4]; 4]) {
         if let Some(renderer) = &self.renderer {
             queue.write_buffer(&renderer.view_data, 0, bytemuck::cast_slice(&[vp]));
         }
     }
+
     pub fn set_view_pos(&mut self, queue: &wgpu::Queue, vp: [f32; 4]) {
         if let Some(renderer) = &self.renderer {
             queue.write_buffer(&renderer.view_data, 64, bytemuck::cast_slice(&[vp]));
         }
     }
-    pub fn set_renderer(&mut self, renderer: ParticleSystemRenderer) {
-        self.renderer = Some(renderer);
-    }
+
     pub fn renderer(&self) -> Option<&ParticleSystemRenderer> {
         self.renderer.as_ref()
     }
+
 }
