@@ -63,7 +63,7 @@ fn vs_main(vertex: VertexInput, particle: ParticleInput) -> VertexOutput {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let light_pos = vec3<f32>(0.0, 1.0, 0.0);
+    let light_pos = vec3<f32>(-0.3, 0.2, 0.0);
     let light_col = vec3<f32>(1.0, 1.0, 1.0);
 
     let ambient_strength = 0.1;

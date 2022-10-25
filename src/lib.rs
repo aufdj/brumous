@@ -1,12 +1,9 @@
 mod particle;
 pub mod texture;
-pub mod camera;
 mod random;
 mod vector;
 mod matrix;
 mod quaternion;
-pub mod gpu;
-pub mod delta;
 mod bufio;
 mod obj;
 pub mod error;
@@ -95,7 +92,7 @@ pub struct ParticleSystemRendererDescriptor<'a> {
 impl<'a> Default for ParticleSystemRendererDescriptor<'a> {
     fn default() -> Self {
         Self {
-            texture: Some("image/default.png"),
+            texture: None,
             mesh_type: ParticleMeshType::default(),
         }
     }

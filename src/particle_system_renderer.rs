@@ -3,7 +3,7 @@ use std::io::Read;
 
 use wgpu::util::DeviceExt;
 
-use crate::error::BrumousResult;
+use crate::error::{BrumousResult, BrumousError};
 use crate::bufio::new_input_file;
 use crate::texture::Texture;
 use crate::particle::{
@@ -15,6 +15,8 @@ use crate::particle::{
 use crate::ParticleSystemRendererDescriptor;
 use crate::matrix::Mat4x4;
 use crate::vector::Vec4;
+
+const SHADER: &'static str = include_str!("particle.wgsl");
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -44,11 +46,12 @@ impl ParticleSystemRenderer {
         config: &wgpu::SurfaceConfiguration,
         desc: &ParticleSystemRendererDescriptor,
     ) -> BrumousResult<Self> {
-        let texture = if let Some(tex) = desc.texture {
-            Texture::new(device, queue, Path::new(tex))?
+        let texture = Texture::new(device, queue, desc.texture)?;
+        let fs_entry = if desc.texture.is_some() {
+            "fs_texture"
         }
         else {
-            Texture::new(device, queue, Path::new("image/default.png"))?
+            "fs_main"
         };
 
         let mesh = ParticleMesh::new(device, &desc.mesh_type)?;
@@ -111,7 +114,7 @@ impl ParticleSystemRenderer {
         let bind_groups = vec![
             device.create_bind_group(
                 &wgpu::BindGroupDescriptor {
-                    label: Some("Camera Bind Group"),
+                    label: Some("View Data Bind Group"),
                     layout: &bind_layouts[0],
                     entries: &[
                         wgpu::BindGroupEntry {
@@ -139,14 +142,10 @@ impl ParticleSystemRenderer {
             )
         ];
 
-        let mut shader_str = String::new();
-
-        new_input_file(Path::new("src/particle.wgsl"))?.read_to_string(&mut shader_str)?;
-
         let shader = device.create_shader_module(
             wgpu::ShaderModuleDescriptor {
                 label: Some("Shader"),
-                source: wgpu::ShaderSource::Wgsl(shader_str.into()),
+                source: wgpu::ShaderSource::Wgsl(SHADER.into()),
             }
         );
 
@@ -172,7 +171,7 @@ impl ParticleSystemRenderer {
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &shader,
-                    entry_point: "fs_main",
+                    entry_point: fs_entry,
                     targets: &[
                         Some(wgpu::ColorTargetState {
                             format: config.format,

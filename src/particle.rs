@@ -4,11 +4,13 @@ use std::path::Path;
 use bytemuck;
 
 use crate::ParticleMeshType;
-use crate::obj::read_obj;
+use crate::obj::{read_obj_str, read_obj_file};
 use crate::error::BrumousResult;
 use crate::vector::{Vec3, Vec4};
 use crate::matrix::{Mat3x3, Mat4x4};
 use crate::quaternion::Quaternion;
+
+const CUBE_OBJ: &'static str = include_str!("../obj/cube.obj");
 
 
 pub trait Instance {
@@ -125,10 +127,10 @@ impl ParticleMesh {
     pub fn new(device: &wgpu::Device, mesh_type: &ParticleMeshType) -> BrumousResult<Self> {
         match mesh_type {
             ParticleMeshType::Custom(path) => {
-                read_obj(device, Path::new(path))
+                read_obj_file(device, path)
             },
             ParticleMeshType::Cube => {
-                read_obj(device, Path::new("obj/cube.obj"))
+                Ok(read_obj_str(device, CUBE_OBJ))
             }
         }
     }

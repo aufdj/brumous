@@ -6,33 +6,39 @@ pub type BrumousResult<T> = Result<T, BrumousError>;
 
 #[derive(Debug)]
 pub enum BrumousError {
-    IoError(io::Error),
-    ObjParseError(PathBuf, usize),
-    LoadTextureError(PathBuf),
+    FileOpenError(String, io::Error),
+    FileReadError(String, io::Error),
+    ObjParseError(String, usize),
+    LoadTextureError(String),
 }
 impl From<io::Error> for BrumousError {
     fn from(err: io::Error) -> Self {
-        Self::IoError(err)
+        Self::FileReadError(String::new(), err)
     }
 }
 impl fmt::Display for BrumousError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            BrumousError::IoError(err) => {
+            BrumousError::FileOpenError(path, err) => {
                 write!(f, "
-                    \r{err}"
+                    \r{path}
+                    \r{err}",
+                )
+            }
+            BrumousError::FileReadError(path, err) => {
+                write!(f, "
+                    \r{path}
+                    \r{err}",
                 )
             }
             BrumousError::ObjParseError(path, line) => {
                 write!(f, "
-                    \rError parsing file {}: line {line}",
-                    path.display()
+                    \rError parsing file {path}: line {line}",
                 )
             }
             BrumousError::LoadTextureError(path) => {
                 write!(f, "
-                    \rError loading texture {}",
-                    path.display()
+                    \rError loading texture {path}",
                 )
             }
         }
