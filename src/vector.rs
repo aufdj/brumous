@@ -145,11 +145,11 @@ impl From<[f32; 3]> for Vec3 {
     }
 }
 
-// impl Sum<&Vec3> for &Vec3 {
-//     fn sum<I>(iter: I) -> Self where I: Iterator<Item = Self> {
-//         iter.fold(&Vec3::zero(), |acc, vec| acc + vec)
-//     }
-// }
+impl<'a> Sum<&'a Vec3> for Vec3 {
+    fn sum<I>(iter: I) -> Self where I: Iterator<Item = &'a Self> {
+        iter.fold(Vec3::zero(), |acc, vec| acc + *vec)
+    }
+}
 
 impl fmt::Display for Vec3 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

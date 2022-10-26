@@ -66,45 +66,6 @@ impl ParticleSystem {
         self
     }
 
-    pub fn new_with_renderer(
-        device: &wgpu::Device,
-        config: &wgpu::SurfaceConfiguration,
-        queue: &wgpu::Queue,
-        sys_desc: &ParticleSystemDescriptor,
-        rend_desc: &ParticleSystemRendererDescriptor, 
-    ) -> BrumousResult<Self> {
-        let particles = vec![Particle::default(); sys_desc.max];
-
-        let buf = device.create_buffer_init(
-            &wgpu::util::BufferInitDescriptor {
-                label: Some("Instance Buffer"),
-                contents: bytemuck::cast_slice(&particles.instance()),
-                usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-            }
-        );
-
-        let renderer = Some(
-            ParticleSystemRenderer::new(device, queue, config, rend_desc)?
-        );
-
-        Ok(
-            Self {
-                particles,
-                buf,
-                search_pos: 0,
-                rate:       sys_desc.rate,
-                position:   sys_desc.pos,
-                name:       sys_desc.name.to_string(),
-                life:       sys_desc.life,
-                gravity:    sys_desc.gravity,
-                bounds:     sys_desc.bounds,
-                forces:     Vec::new(),
-                rand:       Randf32::new(),
-                renderer,
-            }
-        )
-    }
-
     fn find_unused_particle(&mut self) -> usize {
         for i in self.search_pos..self.particles.len() {
             if self.particles[i].life < 0.0 {

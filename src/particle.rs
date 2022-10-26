@@ -1,5 +1,4 @@
 use std::mem;
-use std::path::Path;
 
 use bytemuck;
 
@@ -38,7 +37,7 @@ pub struct Particle {
 }
 impl Particle {
     pub fn update(&mut self, delta: f32, gravity: Vec3, forces: &[Vec3]) {
-        let acc = (/*forces.iter().sum::<Vec3>() + */gravity) / self.mass;
+        let acc = (forces.iter().sum::<Vec3>() + gravity) / self.mass;
         self.vel += acc * delta * 0.5;
         self.pos += self.vel * delta;
     }
