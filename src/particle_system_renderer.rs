@@ -1,10 +1,6 @@
-use std::path::Path;
-use std::io::Read;
-
 use wgpu::util::DeviceExt;
 
-use crate::error::{BrumousResult, BrumousError};
-use crate::bufio::new_input_file;
+use crate::error::BrumousResult;
 use crate::texture::Texture;
 use crate::particle::{
     ParticleVertex, 
@@ -58,7 +54,7 @@ impl ParticleSystemRenderer {
 
         let view_data = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
-                label: Some("View Projection Buffer"),
+                label: Some("View Data Buffer"),
                 contents: bytemuck::cast_slice(&[ViewData::new()]),
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             }

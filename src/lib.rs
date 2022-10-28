@@ -1,51 +1,42 @@
 mod particle;
-pub mod texture;
+mod texture;
 mod random;
 mod vector;
 mod matrix;
 mod quaternion;
 mod bufio;
 mod obj;
+mod particle_system_renderer;
 pub mod error;
-pub mod particle_system_renderer;
 pub mod particle_system;
 
 use crate::error::BrumousResult;
 use crate::particle_system::ParticleSystem;
-use crate::particle_system_renderer::ParticleSystemRenderer;
 use crate::vector::Vec3;
 
 /// Creates a new particle system.
 pub trait CreateParticleSystem {
     fn create_particle_system(
         &self, 
-        desc: &ParticleSystemDescriptor, 
-    ) -> BrumousResult<ParticleSystem>;
-    fn create_particle_system_renderer(
-        &self, 
         queue: &wgpu::Queue, 
         config: &wgpu::SurfaceConfiguration,
-        desc: &ParticleSystemRendererDescriptor,
-    ) -> BrumousResult<ParticleSystemRenderer>;
+        sys_desc: &ParticleSystemDescriptor,
+        rend_desc: &ParticleSystemRendererDescriptor, 
+    ) -> BrumousResult<ParticleSystem>;
 }
 impl CreateParticleSystem for wgpu::Device {
     fn create_particle_system(
         &self, 
-        desc: &ParticleSystemDescriptor,
-    ) -> BrumousResult<ParticleSystem> {
-        ParticleSystem::new(self, desc)
-    }
-    fn create_particle_system_renderer(
-        &self, 
         queue: &wgpu::Queue, 
         config: &wgpu::SurfaceConfiguration,
-        desc: &ParticleSystemRendererDescriptor,
-    ) -> BrumousResult<ParticleSystemRenderer> {
-        ParticleSystemRenderer::new(self, queue, config, desc)
+        sys_desc: &ParticleSystemDescriptor,
+        rend_desc: &ParticleSystemRendererDescriptor, 
+    ) -> BrumousResult<ParticleSystem> {
+        ParticleSystem::new(self, queue, config, sys_desc, rend_desc)
     }
 }
 
-/// Draws a new particle system
+/// Draw particles in particle system
 pub trait DrawParticleSystem<'a, 'b> where 'a: 'b {
     fn draw_particle_system(
         &'b mut self, 
@@ -57,22 +48,20 @@ impl<'a, 'b> DrawParticleSystem<'a, 'b> for wgpu::RenderPass<'a> where 'a: 'b {
         &'b mut self, 
         sys: &'a ParticleSystem, 
     ) {
-        if let Some(renderer) = sys.renderer() {
-            self.set_pipeline(&renderer.pipeline);
+        self.set_pipeline(&sys.renderer().pipeline);
 
-            for (i, group) in renderer.bind_groups.iter().enumerate() {
-                self.set_bind_group(i as u32, group, &[]);
-            }
-            self.set_vertex_buffer(0, renderer.mesh.vertex_buf.slice(..));
-            self.set_vertex_buffer(1, sys.particle_buf().slice(..));
+        for (i, group) in sys.renderer().bind_groups.iter().enumerate() {
+            self.set_bind_group(i as u32, group, &[]);
+        }
+        self.set_vertex_buffer(0, sys.renderer().mesh.vertex_buf.slice(..));
+        self.set_vertex_buffer(1, sys.particle_buf().slice(..));
 
-            if let Some(index_buf) = &renderer.mesh.index_buf {
-                self.set_index_buffer(index_buf.slice(..), wgpu::IndexFormat::Uint16);
-                self.draw_indexed(0..renderer.mesh.index_count, 0, 0..sys.particle_count());
-            }
-            else {
-                self.draw(0..renderer.mesh.vertex_count, 0..sys.particle_count());
-            }
+        if let Some(index_buf) = &sys.renderer().mesh.index_buf {
+            self.set_index_buffer(index_buf.slice(..), wgpu::IndexFormat::Uint16);
+            self.draw_indexed(0..sys.renderer().mesh.index_count, 0, 0..sys.particle_count());
+        }
+        else {
+            self.draw(0..sys.renderer().mesh.vertex_count, 0..sys.particle_count());
         }
     }
 }
@@ -98,7 +87,7 @@ impl<'a> Default for ParticleSystemRendererDescriptor<'a> {
     }
 }
 
-/// Describes characteristics of a particle system.
+/// Describe characteristics of a particle system.
 pub struct ParticleSystemDescriptor<'a> {
     pub max:     usize,
     pub rate:    usize,
@@ -116,7 +105,7 @@ impl<'a> Default for ParticleSystemDescriptor<'a> {
             pos:     Vec3::zero(),
             name:    "Particle System",
             life:    1000.0,
-            gravity: Vec3::new(0.0, -9.81, 0.0),
+            gravity: Vec3::new(0.0, 0.0, 0.0),
             bounds:  ParticleSystemBounds::default(),
         }
     }

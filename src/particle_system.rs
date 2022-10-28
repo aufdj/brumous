@@ -26,14 +26,17 @@ pub struct ParticleSystem {
     bounds:     ParticleSystemBounds,
     forces:     Vec<Vec3>,
     rand:       Randf32,
-    renderer:   Option<ParticleSystemRenderer>,
+    renderer:   ParticleSystemRenderer,
 }
 impl ParticleSystem {
     pub fn new(
         device: &wgpu::Device,
-        desc: &ParticleSystemDescriptor, 
+        queue: &wgpu::Queue,
+        config: &wgpu::SurfaceConfiguration,
+        sys_desc: &ParticleSystemDescriptor,
+        rend_desc: &ParticleSystemRendererDescriptor, 
     ) -> BrumousResult<Self> {
-        let particles = vec![Particle::default(); desc.max];
+        let particles = vec![Particle::default(); sys_desc.max];
 
         let buf = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
@@ -43,27 +46,24 @@ impl ParticleSystem {
             }
         );
 
+        let renderer = ParticleSystemRenderer::new(device, queue, config, rend_desc)?;
+
         Ok(
             Self {
                 particles,
                 buf,
-                search_pos:   0,
-                rate:         desc.rate,
-                position:     desc.pos,
-                name:         desc.name.to_string(),
-                life:         desc.life,
-                gravity:      desc.gravity,
-                bounds:       desc.bounds,
-                forces:       Vec::new(),
-                rand:         Randf32::new(),
-                renderer:     None,
+                search_pos: 0,
+                rate:       sys_desc.rate,
+                position:   sys_desc.pos,
+                name:       sys_desc.name.to_string(),
+                life:       sys_desc.life,
+                gravity:    sys_desc.gravity,
+                bounds:     sys_desc.bounds,
+                forces:     Vec::new(),
+                rand:       Randf32::new(),
+                renderer,
             }
         )
-    }
-
-    pub fn with_renderer(mut self, renderer: ParticleSystemRenderer) -> Self {
-        self.renderer = Some(renderer);
-        self
     }
 
     fn find_unused_particle(&mut self) -> usize {
@@ -118,15 +118,17 @@ impl ParticleSystem {
                     bytemuck::cast_slice(&[particle.instance()])
                 );
             }
+            else {
+                queue.write_buffer(
+                    &self.buf,
+                    index as u64 * ParticleInstance::size(),
+                    bytemuck::cast_slice(&[ParticleInstance::empty()])
+                );
+            }
         }
         if self.search_pos > self.particles.len() {
             self.search_pos = self.particles.len() - 1;
         }
-    }
-
-    /// Clear particle system's particle buffer.
-    pub fn clear(&mut self, encoder: &mut wgpu::CommandEncoder) {
-        encoder.clear_buffer(&self.buf, 0, self.particle_buf_size());
     }
 
     /// Return number of particles in particle system.
@@ -158,7 +160,7 @@ impl ParticleSystem {
 
     /// Set position of particle system.
     pub fn set_position(&mut self, pos: [f32; 3]) {
-        self.position = Vec3::new(pos[0], pos[1], pos[2]);
+        self.position = pos.into();
     }
 
     /// Set number of particles spawned per frame.
@@ -168,7 +170,7 @@ impl ParticleSystem {
 
     /// Set gravity of particle system.
     pub fn set_gravity(&mut self, gravity: [f32; 3]) {
-        self.gravity = Vec3::new(gravity[0], gravity[1], gravity[2]);
+        self.gravity = gravity.into();
     }
 
     /// Set name of particle system.
@@ -211,19 +213,14 @@ impl ParticleSystem {
     }
 
     pub fn set_view_proj(&mut self, queue: &wgpu::Queue, vp: [[f32; 4]; 4]) {
-        if let Some(renderer) = &self.renderer {
-            queue.write_buffer(&renderer.view_data, 0, bytemuck::cast_slice(&[vp]));
-        }
+        queue.write_buffer(&self.renderer.view_data, 0, bytemuck::cast_slice(&[vp]));
     }
 
     pub fn set_view_pos(&mut self, queue: &wgpu::Queue, vp: [f32; 4]) {
-        if let Some(renderer) = &self.renderer {
-            queue.write_buffer(&renderer.view_data, 64, bytemuck::cast_slice(&[vp]));
-        }
+        queue.write_buffer(&self.renderer.view_data, 64, bytemuck::cast_slice(&[vp]));
     }
 
-    pub fn renderer(&self) -> Option<&ParticleSystemRenderer> {
-        self.renderer.as_ref()
+    pub fn renderer(&self) -> &ParticleSystemRenderer {
+        &self.renderer
     }
-
 }

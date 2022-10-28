@@ -11,6 +11,8 @@ use crate::quaternion::Quaternion;
 
 const CUBE_OBJ: &'static str = include_str!("../obj/cube.obj");
 
+const G: f32 = 0.00000000006674;
+
 
 pub trait Instance {
     fn instance(&self) -> Vec<ParticleInstance>;
@@ -37,6 +39,15 @@ pub struct Particle {
 }
 impl Particle {
     pub fn update(&mut self, delta: f32, gravity: Vec3, forces: &[Vec3]) {
+        let grav_mass = 500000.0;
+        let v = gravity - self.pos;
+        let dist = v.len();
+        let force = G * (grav_mass*self.mass / (dist*dist));
+        let acc = force / self.mass;
+
+        let grav_dir = v.normalized();
+        self.vel += grav_dir * acc * delta;
+
         let acc = (forces.iter().sum::<Vec3>() + gravity) / self.mass;
         self.vel += acc * delta * 0.5;
         self.pos += self.vel * delta;
@@ -77,6 +88,13 @@ pub struct ParticleInstance {
 impl ParticleInstance {
     pub fn size() -> u64 {
         mem::size_of::<Self>() as u64
+    }
+    pub fn empty() -> Self {
+        Self {
+            model: [[0.0; 4]; 4],
+            normal: [[0.0; 3]; 3],
+            color: [0.0; 4],
+        }
     }
     const ATTRIBUTES: [wgpu::VertexAttribute; 8] = wgpu::vertex_attr_array![
         5 => Float32x4,  6 => Float32x4,  7 => Float32x4, 8 => Float32x4,
