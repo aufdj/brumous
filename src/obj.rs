@@ -24,16 +24,12 @@ impl Vertex {
 
 fn f32x3(vec: &[f32]) -> [f32; 3] {
     let mut a = [0.0; 3];
-    for i in 0..3 {
-        a[i] = vec[i];
-    }
+    a[..3].copy_from_slice(&vec[..3]);
     a
 }
 fn f32x2(vec: &[f32]) -> [f32; 2] {
     let mut a = [0.0; 2];
-    for i in 0..2 {
-        a[i] = vec[i];
-    }
+    a[..2].copy_from_slice(&vec[..2]);
     a
 }
 

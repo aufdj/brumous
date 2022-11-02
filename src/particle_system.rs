@@ -8,10 +8,11 @@ use crate::particle_system_renderer::ParticleSystemRenderer;
 use crate::ParticleSystemRendererDescriptor;
 use crate::ParticleSystemDescriptor;
 use crate::ParticleSystemBounds;
+use crate::vector::Vec3;
 use crate::MVar;
 
 use wgpu::util::DeviceExt;
-use crate::vector::Vec3;
+
 
 /// A ParticleSystem manages a set of particles.
 pub struct ParticleSystem {
@@ -22,7 +23,7 @@ pub struct ParticleSystem {
     position:   Vec3,
     name:       String,
     life:       f32,
-    gravity:    Vec3,
+    attractors: Vec<ParticleAttractor>,
     bounds:     ParticleSystemBounds,
     forces:     Vec<Vec3>,
     rand:       Randf32,
@@ -57,7 +58,7 @@ impl ParticleSystem {
                 position:   sys_desc.pos,
                 name:       sys_desc.name.to_string(),
                 life:       sys_desc.life,
-                gravity:    sys_desc.gravity,
+                attractors: Vec::new(),
                 bounds:     sys_desc.bounds,
                 forces:     Vec::new(),
                 rand:       Randf32::new(),
@@ -111,7 +112,7 @@ impl ParticleSystem {
         for (index, particle) in self.particles.iter_mut().enumerate() {
             particle.life -= delta;
             if particle.life > 0.0 {
-                particle.update(delta, self.gravity, &self.forces);
+                particle.update(delta, &self.attractors, &self.forces);
                 queue.write_buffer(
                     &self.buf,
                     index as u64 * ParticleInstance::size(),
@@ -168,11 +169,6 @@ impl ParticleSystem {
         self.rate = rate;
     }
 
-    /// Set gravity of particle system.
-    pub fn set_gravity(&mut self, gravity: [f32; 3]) {
-        self.gravity = gravity.into();
-    }
-
     /// Set name of particle system.
     pub fn set_name(&mut self, name: String) {
         self.name = name;
@@ -208,8 +204,12 @@ impl ParticleSystem {
         self.bounds.scale = scale;
     }
 
-    pub fn apply_force(&mut self, force: [f32; 3]) {
+    pub fn add_force(&mut self, force: [f32; 3]) {
         self.forces.push(force.into());
+    }
+
+    pub fn add_attractor(&mut self, pos: [f32; 3], mass: f32) {
+        self.attractors.push(ParticleAttractor::new(pos.into(), mass));
     }
 
     pub fn set_view_proj(&mut self, queue: &wgpu::Queue, vp: [[f32; 4]; 4]) {
@@ -222,5 +222,18 @@ impl ParticleSystem {
 
     pub fn renderer(&self) -> &ParticleSystemRenderer {
         &self.renderer
+    }
+}
+
+pub struct ParticleAttractor {
+    pub pos: Vec3,
+    pub mass: f32,
+}
+impl ParticleAttractor {
+    fn new(pos: [f32; 3], mass: f32) -> Self {
+        Self { 
+            pos: pos.into(), 
+            mass 
+        }
     }
 }

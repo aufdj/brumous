@@ -1,15 +1,14 @@
 use std::mem;
 
-use bytemuck;
-
 use crate::ParticleMeshType;
 use crate::obj::{read_obj_str, read_obj_file};
 use crate::error::BrumousResult;
 use crate::vector::{Vec3, Vec4};
 use crate::matrix::{Mat3x3, Mat4x4};
 use crate::quaternion::Quaternion;
+use crate::particle_system::ParticleAttractor;
 
-const CUBE_OBJ: &'static str = include_str!("../obj/cube.obj");
+const CUBE_OBJ: &str = include_str!("../obj/cube.obj");
 
 const G: f32 = 0.00000000006674;
 
@@ -38,17 +37,17 @@ pub struct Particle {
     pub color: Vec4,
 }
 impl Particle {
-    pub fn update(&mut self, delta: f32, gravity: Vec3, forces: &[Vec3]) {
-        let grav_mass = 500000.0;
-        let v = gravity - self.pos;
-        let dist = v.len();
-        let force = G * (grav_mass*self.mass / (dist*dist));
-        let acc = force / self.mass;
-
-        let grav_dir = v.normalized();
-        self.vel += grav_dir * acc * delta;
-
-        let acc = (forces.iter().sum::<Vec3>() + gravity) / self.mass;
+    pub fn update(&mut self, delta: f32, atts: &[ParticleAttractor], forces: &[Vec3]) {
+        for att in atts.iter() {
+            let pa = att.pos - self.pos;
+            let dist = pa.len();
+            let force = (G * att.mass * self.mass) / (dist * dist);
+            let acc = force / self.mass;
+            let grav_dir = pa.normalized();
+            self.vel += grav_dir * (acc * delta);
+        }
+        
+        let acc = forces.iter().sum::<Vec3>() / self.mass;
         self.vel += acc * delta * 0.5;
         self.pos += self.vel * delta;
     }

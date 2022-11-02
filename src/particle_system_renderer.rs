@@ -12,7 +12,7 @@ use crate::ParticleSystemRendererDescriptor;
 use crate::matrix::Mat4x4;
 use crate::vector::Vec4;
 
-const SHADER: &'static str = include_str!("particle.wgsl");
+const SHADER: &str = include_str!("particle.wgsl");
 
 #[repr(C)]
 #[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
@@ -111,7 +111,7 @@ impl ParticleSystemRenderer {
             device.create_bind_group(
                 &wgpu::BindGroupDescriptor {
                     label: Some("View Data Bind Group"),
-                    layout: &bind_layouts[0],
+                    layout: bind_layouts[0],
                     entries: &[
                         wgpu::BindGroupEntry {
                             binding: 0,
@@ -123,7 +123,7 @@ impl ParticleSystemRenderer {
             device.create_bind_group(
                 &wgpu::BindGroupDescriptor {
                     label: Some("Texture Bind Group"),
-                    layout: &bind_layouts[1],
+                    layout: bind_layouts[1],
                     entries: &[
                         wgpu::BindGroupEntry {
                             binding: 0,

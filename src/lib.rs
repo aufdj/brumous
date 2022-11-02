@@ -74,39 +74,30 @@ pub enum ParticleMeshType<'a> {
     Custom(&'a str),
 }
 
+#[derive(Default)]
 pub struct ParticleSystemRendererDescriptor<'a> {
     pub texture: Option<&'a str>,
     pub mesh_type: ParticleMeshType<'a>,
 }
-impl<'a> Default for ParticleSystemRendererDescriptor<'a> {
-    fn default() -> Self {
-        Self {
-            texture: None,
-            mesh_type: ParticleMeshType::default(),
-        }
-    }
-}
 
 /// Describe characteristics of a particle system.
 pub struct ParticleSystemDescriptor<'a> {
-    pub max:     usize,
-    pub rate:    usize,
-    pub pos:     Vec3,
-    pub name:    &'a str,
-    pub life:    f32,
-    pub gravity: Vec3,
-    pub bounds:  ParticleSystemBounds,
+    pub max:        usize,
+    pub rate:       usize,
+    pub pos:        Vec3,
+    pub name:       &'a str,
+    pub life:       f32,
+    pub bounds:     ParticleSystemBounds,
 }
 impl<'a> Default for ParticleSystemDescriptor<'a> {
     fn default() -> Self {
         Self {
-            max:     500,
-            rate:    1,
-            pos:     Vec3::zero(),
-            name:    "Particle System",
-            life:    1000.0,
-            gravity: Vec3::new(0.0, 0.0, 0.0),
-            bounds:  ParticleSystemBounds::default(),
+            max:        500,
+            rate:       1,
+            pos:        Vec3::zero(),
+            name:       "Particle System",
+            life:       1000.0,
+            bounds:     ParticleSystemBounds::default(),
         }
     }
 }

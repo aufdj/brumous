@@ -12,7 +12,6 @@ pub const F64_MANTISSA: f64 = (1u64 << f64::MANTISSA_DIGITS) as f64; // is 2^53
 pub struct Randf32 {
     state: u64,
 }
-#[allow(dead_code)]
 impl Randf32 {
     pub fn new() -> Self {
         Self {
@@ -58,5 +57,10 @@ impl Randf32 {
             mvar[2].0 + self.next_in(-1.0..1.0) * mvar[2].1,
             mvar[3].0 + self.next_in(-1.0..1.0) * mvar[3].1,
         )
+    }
+}
+impl Default for Randf32 {
+    fn default() -> Self {
+        Self::new()
     }
 }

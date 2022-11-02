@@ -13,9 +13,7 @@ pub struct Vec3 {
 }
 impl Vec3 {
     pub fn new(x: f32, y: f32, z: f32) -> Self {
-        Self {
-            x, y, z,
-        }
+        Self { x, y, z }
     }
 
     pub fn zero() -> Self {
@@ -51,7 +49,7 @@ impl Vec3 {
         Self::new(
             rand.next_in(range.clone()),
             rand.next_in(range.clone()),
-            rand.next_in(range.clone()),
+            rand.next_in(range),
         )  
     }
 
@@ -71,10 +69,10 @@ impl Vec3 {
     pub fn random_in_hemisphere(rand: &mut Randf32, normal: Vec3) -> Self {
         let in_unit_sphere = Self::random_in_unit_sphere(rand);
         if in_unit_sphere.dot(normal) >= 0.0 {
-            return in_unit_sphere;
+            in_unit_sphere
         }
         else {
-            return -in_unit_sphere;
+            -in_unit_sphere
         }
     }
 
@@ -232,7 +230,7 @@ impl Vec4 {
         Self::new(
             rand.next_in(range.clone()),
             rand.next_in(range.clone()),
-            rand.next_in(range.clone()),
+            rand.next_in(range),
             0.0,
         )   
     }
@@ -253,10 +251,10 @@ impl Vec4 {
     pub fn random_in_hemisphere(rand: &mut Randf32, normal: Vec4) -> Self {
         let in_unit_sphere = Self::random_in_unit_sphere(rand);
         if in_unit_sphere.dot(normal) >= 0.0 {
-            return in_unit_sphere;
+            in_unit_sphere
         }
         else {
-            return -in_unit_sphere;
+            -in_unit_sphere
         }
     }
 

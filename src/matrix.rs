@@ -11,6 +11,7 @@ pub struct Mat4x4 {
     pub c3: Vec4,
 }
 impl Mat4x4 {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         c0r0: f32, c0r1: f32, c0r2: f32, c0r3: f32,
         c1r0: f32, c1r1: f32, c1r2: f32, c1r3: f32,
@@ -26,12 +27,7 @@ impl Mat4x4 {
     }
     
     pub fn from_cols(c0: Vec4, c1: Vec4, c2: Vec4, c3: Vec4) -> Self {
-        Self {
-            c0,
-            c1,
-            c2,
-            c3,
-        }
+        Self { c0, c1, c2, c3 }
     }
 
     pub fn identity() -> Self {
@@ -62,36 +58,6 @@ impl Mat4x4 {
             0.0, s2, 0.0, 0.0,
             0.0, 0.0, s3, 0.0,
             0.0, 0.0, 0.0, 1.0
-        )
-    }
-
-    pub fn perspective(fovy: f32, aspect: f32, znear: f32, zfar: f32) -> Self {
-        let f = 1.0 / ((fovy / 2.0).tan());
-
-        let c0r0 = f / aspect;
-        let c1r1 = f;
-        let c2r2 = (zfar + znear) / (znear - zfar);
-        let c3r2 = (2.0 * zfar * znear) / (znear - zfar);
-
-        Self::new(
-            c0r0, 0.0,  0.0,   0.0,
-            0.0,  c1r1, 0.0,   0.0,
-            0.0,  0.0,  c2r2, -1.0,
-            0.0,  0.0,  c3r2,  0.0,
-        )
-    }
-
-    pub fn look_at(eye: Vec3, center: Vec3, up: Vec3) -> Self {
-        let dir = center - eye;
-        let f = dir.normalized();
-        let s = f.cross(up).normalized();
-        let u = s.cross(f);
-
-        Self::new(
-             s.x,         u.x,        -f.x,        0.0,
-             s.y,         u.y,        -f.y,        0.0,
-             s.z,         u.z,        -f.z,        0.0,
-            -eye.dot(s), -eye.dot(u),  eye.dot(f), 1.0,
         )
     }
 }
@@ -155,9 +121,7 @@ impl Mul for Mat4x4 {
         let v2 = other.c2 * self;
         let v3 = other.c3 * self;
 
-        Mat4x4::from_cols(
-            v0, v1, v2, v3
-        )
+        Mat4x4::from_cols(v0, v1, v2, v3)
     }
 }
 
@@ -193,6 +157,7 @@ pub struct Mat3x3 {
     pub c2: Vec3,
 }
 impl Mat3x3 {
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         c0r0: f32, c0r1: f32, c0r2: f32,
         c1r0: f32, c1r1: f32, c1r2: f32,
