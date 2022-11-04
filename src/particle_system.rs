@@ -67,34 +67,32 @@ impl ParticleSystem {
         )
     }
 
-    fn find_unused_particle(&mut self) -> usize {
-        for i in self.search_pos..self.particles.len() {
-            if self.particles[i].life < 0.0 {
-                self.search_pos = i;
-                return i;
+    fn respawn_particles(&mut self, mut rate: usize) {
+        for (i, particle) in self.particles
+        .iter_mut()
+        .skip(self.search_pos)
+        .enumerate() {
+            if particle.life < 0.0 {
+                self.search_pos = self.search_pos + i;
+                *particle = Particle::new(&mut self.rand, &self.bounds, &self.position);
+                rate -= 1;
+                if rate == 0 {
+                    return;
+                }
             }
         }
-
-        for i in 0..self.search_pos {
-            if self.particles[i].life < 0.0 {
-                self.search_pos = i;
-                return i;
+        for (i, particle) in self.particles
+        .iter_mut()
+        .take(self.search_pos)
+        .enumerate() {
+            if particle.life < 0.0 {
+                self.search_pos = self.search_pos + i;
+                *particle = Particle::new(&mut self.rand, &self.bounds, &self.position);
+                rate -= 1;
+                if rate == 0 {
+                    return;
+                }
             }
-        }
-        self.search_pos = 0;
-        0
-    }
-
-    /// Create new particle 
-    fn new_particle(&mut self) -> Particle {
-        Particle {
-            pos:   self.rand.vec3_in_variance(&self.bounds.spawn_range) + self.position,
-            vel:   self.rand.vec3_in_variance(&self.bounds.init_vel), 
-            rot:   self.rand.quat_in_variance(&self.bounds.rot), 
-            color: self.rand.vec4_in_variance(&self.bounds.color),
-            scale: self.rand.in_variance(&self.bounds.scale),
-            life:  self.rand.in_variance(&self.bounds.life), 
-            mass:  self.rand.in_variance(&self.bounds.mass),
         }
     }
 
@@ -102,10 +100,7 @@ impl ParticleSystem {
     pub fn update(&mut self, delta: Duration, queue: &wgpu::Queue) {
         let delta = delta.as_millis() as f32 / 1000.0;
         if self.life >= 0.0 {
-            for _ in 0..self.rate {
-                let idx = self.find_unused_particle();
-                self.particles[idx] = self.new_particle();
-            }
+            self.respawn_particles(self.rate);
         }
         self.life -= delta;
 
@@ -126,9 +121,6 @@ impl ParticleSystem {
                     bytemuck::cast_slice(&[ParticleInstance::empty()])
                 );
             }
-        }
-        if self.search_pos > self.particles.len() {
-            self.search_pos = self.particles.len() - 1;
         }
     }
 

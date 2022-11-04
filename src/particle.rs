@@ -1,11 +1,12 @@
 use std::mem;
 
-use crate::ParticleMeshType;
+use crate::{ParticleSystemBounds, ParticleMeshType};
 use crate::obj::{read_obj_str, read_obj_file};
 use crate::error::BrumousResult;
 use crate::vector::{Vec3, Vec4};
 use crate::matrix::{Mat3x3, Mat4x4};
 use crate::quaternion::Quaternion;
+use crate::random::Randf32;
 use crate::particle_system::ParticleAttractor;
 
 const CUBE_OBJ: &str = include_str!("../obj/cube.obj");
@@ -26,7 +27,7 @@ pub trait VertexLayout {
     fn layout() -> wgpu::VertexBufferLayout<'static>;
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 pub struct Particle {
     pub pos:   Vec3,
     pub vel:   Vec3,
@@ -37,6 +38,17 @@ pub struct Particle {
     pub color: Vec4,
 }
 impl Particle {
+    pub fn new(rand: &mut Randf32, bounds: &ParticleSystemBounds, pos: &Vec3) -> Self {
+        Self {
+            pos:   rand.vec3_in_variance(&bounds.spawn_range) + *pos,
+            vel:   rand.vec3_in_variance(&bounds.init_vel), 
+            rot:   rand.quat_in_variance(&bounds.rot), 
+            color: rand.vec4_in_variance(&bounds.color),
+            scale: rand.in_variance(&bounds.scale),
+            life:  rand.in_variance(&bounds.life), 
+            mass:  rand.in_variance(&bounds.mass),
+        }
+    }
     pub fn update(&mut self, delta: f32, atts: &[ParticleAttractor], forces: &[Vec3]) {
         for att in atts.iter() {
             let pa = att.pos - self.pos;
