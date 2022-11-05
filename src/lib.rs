@@ -102,31 +102,28 @@ impl<'a> Default for ParticleSystemDescriptor<'a> {
     }
 }
 
-/// Mean and variance.
-#[derive(Copy, Clone)]
-pub struct MVar(pub f32, pub f32);
 
 /// Describes the range of possible values of a particle's traits.
 #[derive(Copy, Clone)]
 pub struct ParticleSystemBounds {
-    pub spawn_range: [MVar; 3],
-    pub init_vel:    [MVar; 3],
-    pub rot:         [MVar; 4],
-    pub color:       [MVar; 4],
-    pub life:        MVar,
-    pub mass:        MVar,
-    pub scale:       MVar,
+    pub area:     [(f32, f32); 3],
+    pub velocity: [(f32, f32); 3],
+    pub rotation: [(f32, f32); 4],
+    pub color:    [(f32, f32); 4],
+    pub life:     (f32, f32),
+    pub mass:     (f32, f32),
+    pub scale:    (f32, f32),
 }
 impl Default for ParticleSystemBounds {
     fn default() -> Self {
         Self {
-            spawn_range: [MVar(0.0, 0.0); 3],
-            life:        MVar(5.0, 2.0),
-            init_vel:    [MVar(0.0, 0.2), MVar(0.7, 0.2), MVar(0.0, 0.2)],
-            rot:         [MVar(0.0, 0.0); 4],
-            color:       [MVar(0.5, 0.5); 4],
-            mass:        MVar(2.0, 0.1),
-            scale:       MVar(0.007, 0.002),
+            area:     [(0.0, 0.0); 3],
+            velocity: [(0.0, 0.2), (0.7, 0.2), (0.0, 0.2)],
+            rotation: [(0.0, 0.0); 4],
+            color:    [(0.5, 0.5); 4],
+            life:     (5.0, 2.0),
+            mass:     (1.0, 0.1),
+            scale:    (0.007, 0.002),
         }
     }
 }

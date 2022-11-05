@@ -27,64 +27,51 @@ pub trait VertexLayout {
     fn layout() -> wgpu::VertexBufferLayout<'static>;
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct Particle {
-    pub pos:   Vec3,
-    pub vel:   Vec3,
-    pub rot:   Quaternion,
-    pub scale: f32,
-    pub life:  f32,
-    pub mass:  f32,
-    pub color: Vec4,
+    pub position: Vec3,
+    pub velocity: Vec3,
+    pub rotation: Quaternion,
+    pub scale:    f32,
+    pub life:     f32,
+    pub mass:     f32,
+    pub color:    Vec4,
 }
 impl Particle {
     pub fn new(rand: &mut Randf32, bounds: &ParticleSystemBounds, pos: &Vec3) -> Self {
         Self {
-            pos:   rand.vec3_in_variance(&bounds.spawn_range) + *pos,
-            vel:   rand.vec3_in_variance(&bounds.init_vel), 
-            rot:   rand.quat_in_variance(&bounds.rot), 
-            color: rand.vec4_in_variance(&bounds.color),
-            scale: rand.in_variance(&bounds.scale),
-            life:  rand.in_variance(&bounds.life), 
-            mass:  rand.in_variance(&bounds.mass),
+            position: rand.vec3_in_variance(&bounds.area) + *pos,
+            velocity: rand.vec3_in_variance(&bounds.velocity), 
+            rotation: rand.quat_in_variance(&bounds.rotation), 
+            color:    rand.vec4_in_variance(&bounds.color),
+            scale:    rand.in_variance(&bounds.scale),
+            life:     rand.in_variance(&bounds.life), 
+            mass:     rand.in_variance(&bounds.mass),
         }
     }
     pub fn update(&mut self, delta: f32, atts: &[ParticleAttractor], forces: &[Vec3]) {
         for att in atts.iter() {
-            let pa = att.pos - self.pos;
+            let pa = att.pos - self.position;
             let dist = pa.len();
             let force = (G * att.mass * self.mass) / (dist * dist);
             let acc = force / self.mass;
             let grav_dir = pa.normalized();
-            self.vel += grav_dir * (acc * delta);
+            self.velocity += grav_dir * (acc * delta);
         }
         
         let acc = forces.iter().sum::<Vec3>() / self.mass;
-        self.vel += acc * delta * 0.5;
-        self.pos += self.vel * delta;
+        self.velocity += acc * delta * 0.5;
+        self.position += self.velocity * delta;
     }
     pub fn instance(&self) -> ParticleInstance {
         ParticleInstance {
             model: (
-                Mat4x4::from_translation(self.pos) *
-                Mat4x4::from(self.rot) *
+                Mat4x4::from_translation(self.position) *
+                Mat4x4::from(self.rotation) *
                 Mat4x4::from_scale(self.scale)
             ).into(),
-            normal: Mat3x3::from(self.rot).into(),
+            normal: Mat3x3::from(self.rotation).into(),
             color: self.color.into(),
-        }
-    }
-}
-impl Default for Particle {
-    fn default() -> Self {
-        Self {
-            pos:   Vec3::new(0.0, -100.0, 0.0),
-            rot:   Quaternion::new(0.0, 0.0, 0.0, 0.0), 
-            vel:   Vec3::zero(), 
-            scale: 0.0,
-            life:  0.0, 
-            mass:  0.0,
-            color: Vec4::zero(),
         }
     }
 }

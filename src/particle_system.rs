@@ -9,7 +9,6 @@ use crate::ParticleSystemRendererDescriptor;
 use crate::ParticleSystemDescriptor;
 use crate::ParticleSystemBounds;
 use crate::vector::Vec3;
-use crate::MVar;
 
 use wgpu::util::DeviceExt;
 
@@ -152,8 +151,8 @@ impl ParticleSystem {
     }
 
     /// Set position of particle system.
-    pub fn set_position(&mut self, pos: [f32; 3]) {
-        self.position = pos.into();
+    pub fn set_position(&mut self, position: [f32; 3]) {
+        self.position = position.into();
     }
 
     /// Set number of particles spawned per frame.
@@ -167,32 +166,32 @@ impl ParticleSystem {
     }
 
     /// Set minimum and maximum particle mass.
-    pub fn set_mass_variance(&mut self, mass: MVar) {
+    pub fn set_mass_variance(&mut self, mass: (f32, f32)) {
         self.bounds.mass = mass;
     }
 
     /// Set minimum and maximum initial particle velocity.
-    pub fn set_initial_velocity_variance(&mut self, init_vel: [MVar; 3]) {
-        self.bounds.init_vel = init_vel;
+    pub fn set_initial_velocity_variance(&mut self, velocity: [(f32, f32); 3]) {
+        self.bounds.velocity = velocity;
     }
 
     /// Set dimensions of area in which particles spawn.
-    pub fn set_spawn_variance(&mut self, spawn_range: [MVar; 3]) {
-        self.bounds.spawn_range = spawn_range;
+    pub fn set_spawn_variance(&mut self, area: [(f32, f32); 3]) {
+        self.bounds.area = area;
     }
 
     /// Set minimum and maximum particle lifetimes.
-    pub fn set_life_variance(&mut self, life: MVar) {
+    pub fn set_life_variance(&mut self, life: (f32, f32)) {
         self.bounds.life = life;
     }
 
     /// Set minimum and maximum particle RGBA values.
-    pub fn set_color_variance(&mut self, color: [MVar; 4]) {
+    pub fn set_color_variance(&mut self, color: [(f32, f32); 4]) {
         self.bounds.color = color;
     }
 
     /// Set minimum and maximum particle size.
-    pub fn set_scale_variance(&mut self, scale: MVar) {
+    pub fn set_scale_variance(&mut self, scale: (f32, f32)) {
         self.bounds.scale = scale;
     }
 

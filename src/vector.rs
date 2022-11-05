@@ -143,6 +143,12 @@ impl From<[f32; 3]> for Vec3 {
     }
 }
 
+impl From<(f32, f32, f32)> for Vec3 {
+    fn from(t: (f32, f32, f32)) -> Vec3 {
+        Vec3::new(t.0, t.1, t.2)
+    }
+}
+
 impl<'a> Sum<&'a Vec3> for Vec3 {
     fn sum<I>(iter: I) -> Self where I: Iterator<Item = &'a Self> {
         iter.fold(Vec3::zero(), |acc, vec| acc + *vec)

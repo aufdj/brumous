@@ -22,17 +22,6 @@ impl Vertex {
     }
 }
 
-fn f32x3(vec: &[f32]) -> [f32; 3] {
-    let mut a = [0.0; 3];
-    a[..3].copy_from_slice(&vec[..3]);
-    a
-}
-fn f32x2(vec: &[f32]) -> [f32; 2] {
-    let mut a = [0.0; 2];
-    a[..2].copy_from_slice(&vec[..2]);
-    a
-}
-
 pub fn read_obj_file(device: &wgpu::Device, path: &str) -> BrumousResult<ParticleMesh> {
     let mut file = match new_input_file(Path::new(path)) {
         Ok(f) => {
@@ -75,7 +64,7 @@ pub fn read_obj_file(device: &wgpu::Device, path: &str) -> BrumousResult<Particl
                         );
                     }
                 }
-                v.push(f32x3(&floats));
+                v.push(floats[..3].try_into().unwrap());
             }
             Some("vt") => {
                 while let Some(s) = string.next() {
@@ -91,7 +80,7 @@ pub fn read_obj_file(device: &wgpu::Device, path: &str) -> BrumousResult<Particl
                         );
                     }
                 }
-                vt.push(f32x2(&floats));
+                vt.push(floats[..2].try_into().unwrap());
             }
             Some("vn") => {
                 while let Some(s) = string.next() {
@@ -107,7 +96,7 @@ pub fn read_obj_file(device: &wgpu::Device, path: &str) -> BrumousResult<Particl
                         );
                     }
                 }
-                vn.push(f32x3(&floats));
+                vn.push(floats[..3].try_into().unwrap());
             }
             Some("f") => {
                 while let Some(s) = string.next() {
@@ -206,19 +195,19 @@ pub fn read_obj_str(device: &wgpu::Device, s: &str) -> ParticleMesh {
                 while let Some(s) = string.next() {
                     floats.push(s.parse::<f32>().unwrap());
                 }
-                v.push(f32x3(&floats));
+                v.push(floats[..3].try_into().unwrap());
             }
             Some("vt") => {
                 while let Some(s) = string.next() {
                     floats.push(s.parse::<f32>().unwrap());
                 }
-                vt.push(f32x2(&floats));
+                vt.push(floats[..2].try_into().unwrap());
             }
             Some("vn") => {
                 while let Some(s) = string.next() {
                     floats.push(s.parse::<f32>().unwrap());
                 }
-                vn.push(f32x3(&floats));
+                vn.push(floats[..3].try_into().unwrap());
             }
             Some("f") => {
                 while let Some(s) = string.next() {

@@ -1,6 +1,6 @@
 use crate::vector::Vec3;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default)]
 pub struct Quaternion {
     pub s: f32,
     pub v: Vec3,
@@ -10,6 +10,12 @@ impl Quaternion {
         Self {
             s, 
             v: Vec3::new(xi, yj, zk),
+        }
+    }
+    pub fn zero() -> Self {
+        Self {
+            s: 0.0,
+            v: Vec3::zero(),
         }
     }
 }

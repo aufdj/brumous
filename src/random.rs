@@ -1,6 +1,5 @@
 use std::ops::Range;
 
-use crate::MVar;
 use crate::vector::{Vec3, Vec4};
 use crate::quaternion::Quaternion;
 
@@ -32,30 +31,30 @@ impl Randf32 {
     pub fn next_in(&mut self, range: Range<f32>) -> f32 {
         (range.end - range.start) * self.next() + range.start
     }
-    pub fn in_variance(&mut self, mvar: &MVar) -> f32 {
-        mvar.0 + self.next_in(-1.0..1.0) * mvar.1
+    pub fn in_variance(&mut self, bound: &(f32, f32)) -> f32 {
+        bound.0 + self.next_in(-1.0..1.0) * bound.1
     }
-    pub fn vec3_in_variance(&mut self, mvar: &[MVar; 3]) -> Vec3 {
+    pub fn vec3_in_variance(&mut self, bounds: &[(f32, f32); 3]) -> Vec3 {
         Vec3::new(
-            mvar[0].0 + self.next_in(-1.0..1.0) * mvar[0].1,
-            mvar[1].0 + self.next_in(-1.0..1.0) * mvar[1].1,
-            mvar[2].0 + self.next_in(-1.0..1.0) * mvar[2].1,
+            bounds[0].0 + self.next_in(-1.0..1.0) * bounds[0].1,
+            bounds[1].0 + self.next_in(-1.0..1.0) * bounds[1].1,
+            bounds[2].0 + self.next_in(-1.0..1.0) * bounds[2].1,
         )
     }
-    pub fn vec4_in_variance(&mut self, mvar: &[MVar; 4]) -> Vec4 {
+    pub fn vec4_in_variance(&mut self, bounds: &[(f32, f32); 4]) -> Vec4 {
         Vec4::new(
-            mvar[0].0 + self.next_in(-1.0..1.0) * mvar[0].1,
-            mvar[1].0 + self.next_in(-1.0..1.0) * mvar[1].1,
-            mvar[2].0 + self.next_in(-1.0..1.0) * mvar[2].1,
-            mvar[3].0 + self.next_in(-1.0..1.0) * mvar[3].1,
+            bounds[0].0 + self.next_in(-1.0..1.0) * bounds[0].1,
+            bounds[1].0 + self.next_in(-1.0..1.0) * bounds[1].1,
+            bounds[2].0 + self.next_in(-1.0..1.0) * bounds[2].1,
+            bounds[3].0 + self.next_in(-1.0..1.0) * bounds[3].1,
         )
     }
-    pub fn quat_in_variance(&mut self, mvar: &[MVar; 4]) -> Quaternion {
+    pub fn quat_in_variance(&mut self, bounds: &[(f32, f32); 4]) -> Quaternion {
         Quaternion::new(
-            mvar[0].0 + self.next_in(-1.0..1.0) * mvar[0].1,
-            mvar[1].0 + self.next_in(-1.0..1.0) * mvar[1].1,
-            mvar[2].0 + self.next_in(-1.0..1.0) * mvar[2].1,
-            mvar[3].0 + self.next_in(-1.0..1.0) * mvar[3].1,
+            bounds[0].0 + self.next_in(-1.0..1.0) * bounds[0].1,
+            bounds[1].0 + self.next_in(-1.0..1.0) * bounds[1].1,
+            bounds[2].0 + self.next_in(-1.0..1.0) * bounds[2].1,
+            bounds[3].0 + self.next_in(-1.0..1.0) * bounds[3].1,
         )
     }
 }
