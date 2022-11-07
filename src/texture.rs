@@ -1,7 +1,5 @@
-use std::path::Path;
-use std::io::Read;
+use std::fs;
 
-use crate::bufio::new_input_file;
 use crate::error::{BrumousError, BrumousResult};
 
 use image::GenericImageView;
@@ -16,69 +14,49 @@ impl Texture {
 
     pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, texture_path: Option<&str>) -> BrumousResult<Self> {
         let texture = if let Some(path) = texture_path {
-            match new_input_file(Path::new(path)) {
-                Ok(mut f) => {
-                    let mut texture_data = Vec::new();
-                    if let Err(e) = f.read_to_end(&mut texture_data) {
-                        return Err(
-                            BrumousError::FileReadError(path.to_string(), e)
-                        );
-                    }
+
+            let data = fs::read(path)
+                .map_err(|e| BrumousError::OpenTexture(path.to_string(), e))?;
+
+            let img = image::load_from_memory(&data)
+                .map_err(|e| BrumousError::LoadTexture(path.to_string(), e))?;
     
-                    let img = match image::load_from_memory(&texture_data) {
-                        Ok(img) => {
-                            img
-                        }
-                        Err(_) => {
-                            return Err(
-                                BrumousError::LoadTextureError(path.to_string())
-                            );
-                        }
-                    };
+            let rgba = img.to_rgba8();
+            let dimensions = img.dimensions();
     
-                    let rgba = img.to_rgba8();
-                    let dimensions = img.dimensions();
-    
-                    let size = wgpu::Extent3d {
-                        width: dimensions.0,
-                        height: dimensions.1,
-                        depth_or_array_layers: 1,
-                    };
-                    let texture = device.create_texture(
-                        &wgpu::TextureDescriptor {
-                            label: None,
-                            size,
-                            mip_level_count: 1,
-                            sample_count: 1,
-                            dimension: wgpu::TextureDimension::D2,
-                            format: wgpu::TextureFormat::Rgba8UnormSrgb,
-                            usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
-                        }
-                    );
-    
-                    queue.write_texture(
-                        wgpu::ImageCopyTexture {
-                            aspect: wgpu::TextureAspect::All,
-                            texture: &texture,
-                            mip_level: 0,
-                            origin: wgpu::Origin3d::ZERO,
-                        },
-                        &rgba,
-                        wgpu::ImageDataLayout {
-                            offset: 0,
-                            bytes_per_row: std::num::NonZeroU32::new(4 * dimensions.0),
-                            rows_per_image: std::num::NonZeroU32::new(dimensions.1),
-                        },
-                        size,
-                    );
-                    texture
+            let size = wgpu::Extent3d {
+                width: dimensions.0,
+                height: dimensions.1,
+                depth_or_array_layers: 1,
+            };
+            let texture = device.create_texture(
+                &wgpu::TextureDescriptor {
+                    label: None,
+                    size,
+                    mip_level_count: 1,
+                    sample_count: 1,
+                    dimension: wgpu::TextureDimension::D2,
+                    format: wgpu::TextureFormat::Rgba8UnormSrgb,
+                    usage: wgpu::TextureUsages::TEXTURE_BINDING | wgpu::TextureUsages::COPY_DST,
                 }
-                Err(e) => {
-                    return Err(
-                        BrumousError::FileOpenError(path.to_string(), e)
-                    );
-                }
-            }    
+            );
+    
+            queue.write_texture(
+                wgpu::ImageCopyTexture {
+                    aspect: wgpu::TextureAspect::All,
+                    texture: &texture,
+                    mip_level: 0,
+                    origin: wgpu::Origin3d::ZERO,
+                },
+                &rgba,
+                wgpu::ImageDataLayout {
+                    offset: 0,
+                    bytes_per_row: std::num::NonZeroU32::new(4 * dimensions.0),
+                    rows_per_image: std::num::NonZeroU32::new(dimensions.1),
+                },
+                size,
+            );
+            texture
         }
         else {
             device.create_texture(

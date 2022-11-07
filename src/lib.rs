@@ -4,7 +4,6 @@ mod random;
 mod vector;
 mod matrix;
 mod quaternion;
-mod bufio;
 mod obj;
 mod particle_system_renderer;
 pub mod error;

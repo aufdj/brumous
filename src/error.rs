@@ -1,43 +1,65 @@
 use std::io;
 use std::fmt;
+use std::num;
+use image::error::ImageError;
 
 pub type BrumousResult<T> = Result<T, BrumousError>;
 
 #[derive(Debug)]
 pub enum BrumousError {
-    FileOpenError(String, io::Error),
-    FileReadError(String, io::Error),
-    ObjParseError(String, usize),
-    LoadTextureError(String),
+    FileError(io::Error),
+    ObjInvalidInt(num::ParseIntError),
+    ObjInvalidFloat(num::ParseFloatError),
+    OpenTexture(String, io::Error),
+    LoadTexture(String, ImageError),
 }
+
 impl From<io::Error> for BrumousError {
     fn from(err: io::Error) -> Self {
-        Self::FileReadError(String::new(), err)
+        Self::FileError(err)
     }
 }
+
+impl From<num::ParseIntError> for BrumousError {
+    fn from(err: num::ParseIntError) -> Self {
+        Self::ObjInvalidInt(err)
+    }
+}
+
+impl From<num::ParseFloatError> for BrumousError {
+    fn from(err: num::ParseFloatError) -> Self {
+        Self::ObjInvalidFloat(err)
+    }
+}
+
 impl fmt::Display for BrumousError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            BrumousError::FileOpenError(path, err) => {
+            BrumousError::FileError(err) => {
                 write!(f, "
-                    \r{path}
                     \r{err}",
                 )
             }
-            BrumousError::FileReadError(path, err) => {
+            BrumousError::ObjInvalidInt(err) => {
                 write!(f, "
-                    \r{path}
                     \r{err}",
                 )
             }
-            BrumousError::ObjParseError(path, line) => {
+            BrumousError::ObjInvalidFloat(err) => {
                 write!(f, "
-                    \rError parsing file {path}: line {line}",
+                    \r{err}",
                 )
             }
-            BrumousError::LoadTextureError(path) => {
+            BrumousError::OpenTexture(path, err) => {
                 write!(f, "
-                    \rError loading texture {path}",
+                    \rError opening file {path}:
+                    \r{err}",
+                )
+            }
+            BrumousError::LoadTexture(path, err) => {
+                write!(f, "
+                    \rError loading texture {path}:
+                    \r{err}",
                 )
             }
         }

@@ -1,15 +1,13 @@
 use std::mem;
 
 use crate::{ParticleSystemBounds, ParticleMeshType};
-use crate::obj::{read_obj_str, read_obj_file};
+use crate::obj::read_obj_file;
 use crate::error::BrumousResult;
 use crate::vector::{Vec3, Vec4};
 use crate::matrix::{Mat3x3, Mat4x4};
 use crate::quaternion::Quaternion;
 use crate::random::Randf32;
 use crate::particle_system::ParticleAttractor;
-
-const CUBE_OBJ: &str = include_str!("../obj/cube.obj");
 
 const G: f32 = 0.00000000006674;
 
@@ -40,13 +38,13 @@ pub struct Particle {
 impl Particle {
     pub fn new(rand: &mut Randf32, bounds: &ParticleSystemBounds, pos: &Vec3) -> Self {
         Self {
-            position: rand.vec3_in_variance(&bounds.area) + *pos,
-            velocity: rand.vec3_in_variance(&bounds.velocity), 
-            rotation: rand.quat_in_variance(&bounds.rotation), 
-            color:    rand.vec4_in_variance(&bounds.color),
-            scale:    rand.in_variance(&bounds.scale),
-            life:     rand.in_variance(&bounds.life), 
-            mass:     rand.in_variance(&bounds.mass),
+            position: rand.vec3_in(&bounds.area) + *pos,
+            velocity: rand.vec3_in(&bounds.velocity), 
+            rotation: rand.quat_in(&bounds.rotation), 
+            color:    rand.vec4_in(&bounds.color),
+            scale:    rand.f32_in(&bounds.scale),
+            life:     rand.f32_in(&bounds.life), 
+            mass:     rand.f32_in(&bounds.mass),
         }
     }
     pub fn update(&mut self, delta: f32, atts: &[ParticleAttractor], forces: &[Vec3]) {
@@ -140,14 +138,7 @@ pub struct ParticleMesh {
 }
 impl ParticleMesh {
     pub fn new(device: &wgpu::Device, mesh_type: &ParticleMeshType) -> BrumousResult<Self> {
-        match mesh_type {
-            ParticleMeshType::Custom(path) => {
-                read_obj_file(device, path)
-            },
-            ParticleMeshType::Cube => {
-                Ok(read_obj_str(device, CUBE_OBJ))
-            }
-        }
+        read_obj_file(device, mesh_type)
     }
 }
 

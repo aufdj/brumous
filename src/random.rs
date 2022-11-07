@@ -17,11 +17,6 @@ impl Randf32 {
             state: 555555555,
         }
     }
-    pub fn seed(seed: u64) -> Self {
-        Self {
-            state: seed,
-        }
-    }
     pub fn next(&mut self) -> f32 {
         self.state ^= self.state << 13;
         self.state ^= self.state >> 7;
@@ -31,17 +26,17 @@ impl Randf32 {
     pub fn next_in(&mut self, range: Range<f32>) -> f32 {
         (range.end - range.start) * self.next() + range.start
     }
-    pub fn in_variance(&mut self, bound: &(f32, f32)) -> f32 {
+    pub fn f32_in(&mut self, bound: &(f32, f32)) -> f32 {
         bound.0 + self.next_in(-1.0..1.0) * bound.1
     }
-    pub fn vec3_in_variance(&mut self, bounds: &[(f32, f32); 3]) -> Vec3 {
+    pub fn vec3_in(&mut self, bounds: &[(f32, f32); 3]) -> Vec3 {
         Vec3::new(
             bounds[0].0 + self.next_in(-1.0..1.0) * bounds[0].1,
             bounds[1].0 + self.next_in(-1.0..1.0) * bounds[1].1,
             bounds[2].0 + self.next_in(-1.0..1.0) * bounds[2].1,
         )
     }
-    pub fn vec4_in_variance(&mut self, bounds: &[(f32, f32); 4]) -> Vec4 {
+    pub fn vec4_in(&mut self, bounds: &[(f32, f32); 4]) -> Vec4 {
         Vec4::new(
             bounds[0].0 + self.next_in(-1.0..1.0) * bounds[0].1,
             bounds[1].0 + self.next_in(-1.0..1.0) * bounds[1].1,
@@ -49,7 +44,7 @@ impl Randf32 {
             bounds[3].0 + self.next_in(-1.0..1.0) * bounds[3].1,
         )
     }
-    pub fn quat_in_variance(&mut self, bounds: &[(f32, f32); 4]) -> Quaternion {
+    pub fn quat_in(&mut self, bounds: &[(f32, f32); 4]) -> Quaternion {
         Quaternion::new(
             bounds[0].0 + self.next_in(-1.0..1.0) * bounds[0].1,
             bounds[1].0 + self.next_in(-1.0..1.0) * bounds[1].1,
