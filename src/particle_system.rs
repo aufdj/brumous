@@ -1,5 +1,6 @@
 use std::num::NonZeroU64;
 use std::time::Duration;
+use std::collections::VecDeque;
 
 use crate::particle::*;
 use crate::random::Randf32;
@@ -17,7 +18,7 @@ use wgpu::util::DeviceExt;
 pub struct ParticleSystem {
     particles:  Vec<Particle>,
     buf:        wgpu::Buffer,
-    search_pos: usize,
+    spawnqueue: VecDeque<usize>,
     rate:       usize,
     position:   Vec3,
     name:       String,
@@ -46,13 +47,15 @@ impl ParticleSystem {
             }
         );
 
+        let spawnqueue = VecDeque::from((0..sys_desc.max).collect::<Vec<usize>>());
+
         let renderer = ParticleSystemRenderer::new(device, queue, config, rend_desc)?;
 
         Ok(
             Self {
                 particles,
                 buf,
-                search_pos: 0,
+                spawnqueue,
                 rate:       sys_desc.rate,
                 position:   sys_desc.pos,
                 name:       sys_desc.name.to_string(),
@@ -66,31 +69,13 @@ impl ParticleSystem {
         )
     }
 
-    fn respawn_particles(&mut self, mut rate: usize) {
-        for (i, particle) in self.particles
-        .iter_mut()
-        .skip(self.search_pos)
-        .enumerate() {
-            if particle.life < 0.0 {
-                self.search_pos = self.search_pos + i;
-                *particle = Particle::new(&mut self.rand, &self.bounds, &self.position);
-                rate -= 1;
-                if rate == 0 {
-                    return;
-                }
+    fn respawn_particles(&mut self, rate: usize) {
+        for _ in 0..rate {
+            if let Some(idx) = self.spawnqueue.pop_front() {
+                self.particles[idx] = Particle::new(&mut self.rand, &self.bounds, &self.position);
             }
-        }
-        for (i, particle) in self.particles
-        .iter_mut()
-        .take(self.search_pos)
-        .enumerate() {
-            if particle.life < 0.0 {
-                self.search_pos = self.search_pos + i;
-                *particle = Particle::new(&mut self.rand, &self.bounds, &self.position);
-                rate -= 1;
-                if rate == 0 {
-                    return;
-                }
+            else {
+                return;
             }
         }
     }
@@ -114,6 +99,7 @@ impl ParticleSystem {
                 );
             }
             else {
+                self.spawnqueue.push_back(index);
                 queue.write_buffer(
                     &self.buf,
                     index as u64 * ParticleInstance::size(),
