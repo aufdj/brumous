@@ -92,6 +92,7 @@ impl ParticleSystem {
             particle.life -= delta;
             if particle.life > 0.0 {
                 particle.update(delta, &self.attractors, &self.forces);
+
                 queue.write_buffer(
                     &self.buf,
                     index as u64 * ParticleInstance::size(),
@@ -99,12 +100,17 @@ impl ParticleSystem {
                 );
             }
             else {
-                self.spawnqueue.push_back(index);
-                queue.write_buffer(
-                    &self.buf,
-                    index as u64 * ParticleInstance::size(),
-                    bytemuck::cast_slice(&[ParticleInstance::empty()])
-                );
+                // Add dead particle to respawn queue if not already queued.
+                if !particle.queued {
+                    self.spawnqueue.push_back(index);
+                    particle.queued = true;
+
+                    queue.write_buffer(
+                        &self.buf,
+                        index as u64 * ParticleInstance::size(),
+                        bytemuck::cast_slice(&[ParticleInstance::empty()])
+                    );
+                }
             }
         }
     }
@@ -125,8 +131,28 @@ impl ParticleSystem {
     }
 
     /// Set max number of particles.
-    pub fn set_max_particles(&mut self, max: usize, device: &wgpu::Device) {
-        self.particles.resize(max, Particle::default());
+    pub fn set_max_particles(&mut self, new_max: usize, device: &wgpu::Device) {
+        let old_max = self.particles.len();
+
+        if new_max == old_max {
+            return;
+        }
+
+        self.particles.resize(new_max, Particle::default());
+
+        if new_max < old_max {
+            // If max particles is decreased, existing indices in the spawn
+            // queue larger than the new max particles will be invalidated.
+            self.spawnqueue.retain(|i| *i < new_max);
+        }
+        else {
+            // If max particles is increased, add new indices to spawn queue.
+            let diff = new_max - old_max;
+            for i in 0..diff {
+                self.spawnqueue.push_back(old_max + i);
+            }
+        }
+        
         self.buf = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: Some("Particle Buffer"),

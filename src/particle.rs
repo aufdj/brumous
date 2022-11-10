@@ -25,7 +25,7 @@ pub trait VertexLayout {
     fn layout() -> wgpu::VertexBufferLayout<'static>;
 }
 
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy)]
 pub struct Particle {
     pub position: Vec3,
     pub velocity: Vec3,
@@ -34,6 +34,7 @@ pub struct Particle {
     pub life:     f32,
     pub mass:     f32,
     pub color:    Vec4,
+    pub queued:   bool,
 }
 impl Particle {
     pub fn new(rand: &mut Randf32, bounds: &ParticleSystemBounds, pos: &Vec3) -> Self {
@@ -45,6 +46,7 @@ impl Particle {
             scale:    rand.f32_in(&bounds.scale),
             life:     rand.f32_in(&bounds.life), 
             mass:     rand.f32_in(&bounds.mass),
+            queued:   false,
         }
     }
     pub fn update(&mut self, delta: f32, atts: &[ParticleAttractor], forces: &[Vec3]) {
@@ -59,6 +61,7 @@ impl Particle {
         
         let acc = forces.iter().sum::<Vec3>() / self.mass;
         self.velocity += acc * delta * 0.5;
+
         self.position += self.velocity * delta;
     }
     pub fn instance(&self) -> ParticleInstance {
@@ -70,6 +73,20 @@ impl Particle {
             ).into(),
             normal: Mat3x3::from(self.rotation).into(),
             color: self.color.into(),
+        }
+    }
+}
+impl Default for Particle {
+    fn default() -> Self {
+        Self {
+            position: Vec3::zero(),
+            velocity: Vec3::zero(),
+            rotation: Quaternion::zero(),
+            scale:    0.0,
+            life:     0.0,
+            mass:     0.0,
+            color:    Vec4::zero(),
+            queued:   true,
         }
     }
 }

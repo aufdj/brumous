@@ -37,21 +37,16 @@ impl CreateParticleSystem for wgpu::Device {
 
 /// Draw particles in particle system
 pub trait DrawParticleSystem<'a, 'b> where 'a: 'b {
-    fn draw_particle_system(
-        &'b mut self, 
-        sys: &'a ParticleSystem, 
-    );
+    fn draw_particle_system(&'b mut self, sys: &'a ParticleSystem);
 }
 impl<'a, 'b> DrawParticleSystem<'a, 'b> for wgpu::RenderPass<'a> where 'a: 'b {
-    fn draw_particle_system(
-        &'b mut self, 
-        sys: &'a ParticleSystem, 
-    ) {
+    fn draw_particle_system(&'b mut self, sys: &'a ParticleSystem) {
         self.set_pipeline(&sys.renderer().pipeline);
 
         for (i, group) in sys.renderer().bind_groups.iter().enumerate() {
             self.set_bind_group(i as u32, group, &[]);
         }
+        
         self.set_vertex_buffer(0, sys.renderer().mesh.vertex_buf.slice(..));
         self.set_vertex_buffer(1, sys.particle_buf().slice(..));
 
@@ -63,20 +58,6 @@ impl<'a, 'b> DrawParticleSystem<'a, 'b> for wgpu::RenderPass<'a> where 'a: 'b {
             self.draw(0..sys.renderer().mesh.vertex_count, 0..sys.particle_count());
         }
     }
-}
-
-/// Defines model of each particle.
-#[derive(Default)]
-pub enum ParticleMeshType<'a> {
-    #[default]
-    Cube,
-    Custom(&'a str),
-}
-
-#[derive(Default)]
-pub struct ParticleSystemRendererDescriptor<'a> {
-    pub texture: Option<&'a str>,
-    pub mesh_type: ParticleMeshType<'a>,
 }
 
 /// Describe characteristics of a particle system.
@@ -125,4 +106,18 @@ impl Default for ParticleSystemBounds {
             scale:    (0.007, 0.002),
         }
     }
+}
+
+/// Defines model of each particle.
+#[derive(Default)]
+pub enum ParticleMeshType<'a> {
+    #[default]
+    Cube,
+    Custom(&'a str),
+}
+
+#[derive(Default)]
+pub struct ParticleSystemRendererDescriptor<'a> {
+    pub texture: Option<&'a str>,
+    pub mesh_type: ParticleMeshType<'a>,
 }
