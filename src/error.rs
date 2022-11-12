@@ -1,6 +1,5 @@
 use std::io;
 use std::fmt;
-use std::num;
 use image::error::ImageError;
 
 pub type BrumousResult<T> = Result<T, BrumousError>;
@@ -8,8 +7,9 @@ pub type BrumousResult<T> = Result<T, BrumousError>;
 #[derive(Debug)]
 pub enum BrumousError {
     FileError(io::Error),
-    ObjInvalidInt(num::ParseIntError),
-    ObjInvalidFloat(num::ParseFloatError),
+    ParseInt(String, usize),
+    ParseFloat(String, usize),
+    InvalidVertexData(String, usize),
     OpenTexture(String, io::Error),
     LoadTexture(String, ImageError),
 }
@@ -17,18 +17,6 @@ pub enum BrumousError {
 impl From<io::Error> for BrumousError {
     fn from(err: io::Error) -> Self {
         Self::FileError(err)
-    }
-}
-
-impl From<num::ParseIntError> for BrumousError {
-    fn from(err: num::ParseIntError) -> Self {
-        Self::ObjInvalidInt(err)
-    }
-}
-
-impl From<num::ParseFloatError> for BrumousError {
-    fn from(err: num::ParseFloatError) -> Self {
-        Self::ObjInvalidFloat(err)
     }
 }
 
@@ -40,14 +28,19 @@ impl fmt::Display for BrumousError {
                     \r{err}",
                 )
             }
-            BrumousError::ObjInvalidInt(err) => {
+            BrumousError::ParseInt(path, line) => {
                 write!(f, "
-                    \r{err}",
+                    \rError parsing int on line {line} of file {path}",
                 )
             }
-            BrumousError::ObjInvalidFloat(err) => {
+            BrumousError::ParseFloat(path, line) => {
                 write!(f, "
-                    \r{err}",
+                    \rError parsing float on line {line} of file {path}",
+                )
+            }
+            BrumousError::InvalidVertexData(path, line) => {
+                write!(f, "
+                    \rInvalid vertex data: line {line} of file {path}",
                 )
             }
             BrumousError::OpenTexture(path, err) => {

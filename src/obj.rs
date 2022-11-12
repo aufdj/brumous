@@ -7,6 +7,7 @@ use crate::ParticleMeshType;
 use crate::error::{BrumousResult, BrumousError};
 
 const CUBE_OBJ: &str = include_str!("../obj/cube.obj");
+const POINT_OBJ: &str = include_str!("../obj/point.obj");
   
 enum Vertex {
     Position,
@@ -32,10 +33,13 @@ pub fn read_obj_file(device: &wgpu::Device, mesh_type: &ParticleMeshType) -> Bru
         ParticleMeshType::Cube => {
             parse_obj_file(device, CUBE_OBJ, "cube.obj")
         }
+        ParticleMeshType::Point => {
+            parse_obj_file(device, POINT_OBJ, "point.obj")
+        }
     }
 }
 
-pub fn parse_obj_file(device: &wgpu::Device, data: &str, _path: &str) -> BrumousResult<ParticleMesh> {
+pub fn parse_obj_file(device: &wgpu::Device, data: &str, path: &str) -> BrumousResult<ParticleMesh> {
     let mut vertices = Vec::<ParticleVertex>::new();
     let indices = Vec::<u16>::new();
 
@@ -46,26 +50,50 @@ pub fn parse_obj_file(device: &wgpu::Device, data: &str, _path: &str) -> Brumous
     let mut floats = Vec::new(); 
     let mut num = String::new();
 
-    for (linecount, line) in data.lines().enumerate() {
+    for (count, line) in data.lines().enumerate() {
         let mut string = line.split_whitespace();
         match string.next() {
             Some("v") => {
                 while let Some(s) = string.next() {
-                    floats.push(s.parse::<f32>()?);
+                    floats.push(
+                        s.parse::<f32>().map_err(|_| 
+                            BrumousError::ParseFloat(path.to_string(), count+1)
+                        )?
+                    );
                 }
-                v.push(floats[..3].try_into().unwrap());
+                v.push(
+                    floats[..3].try_into().map_err(|_| 
+                        BrumousError::InvalidVertexData(path.to_string(), count+1)
+                    )?
+                );
             }
             Some("vt") => {
                 while let Some(s) = string.next() {
-                    floats.push(s.parse::<f32>()?);
+                    floats.push(
+                        s.parse::<f32>().map_err(|_| 
+                            BrumousError::ParseFloat(path.to_string(), count+1)
+                        )?
+                    );
                 }
-                vt.push(floats[..2].try_into().unwrap());
+                vt.push(
+                    floats[..2].try_into().map_err(|_| 
+                        BrumousError::InvalidVertexData(path.to_string(), count+1)
+                    )?
+                );
             }
             Some("vn") => {
                 while let Some(s) = string.next() {
-                    floats.push(s.parse::<f32>()?);
+                    floats.push(
+                        s.parse::<f32>().map_err(|_| 
+                            BrumousError::ParseFloat(path.to_string(), count+1)
+                        )?
+                    );
                 }
-                vn.push(floats[..3].try_into().unwrap());
+                vn.push(
+                    floats[..3].try_into().map_err(|_| 
+                        BrumousError::InvalidVertexData(path.to_string(), count+1)
+                    )?
+                );
             }
             Some("f") => {
                 while let Some(s) = string.next() {
@@ -73,21 +101,26 @@ pub fn parse_obj_file(device: &wgpu::Device, data: &str, _path: &str) -> Brumous
                     let mut vertex = ParticleVertex::default();
                     for c in s.chars() {
                         if c == '/' {
-                            let n = num.parse::<i32>()?;
-                            let i = n as usize - 1;
-                            match parse {
-                                Vertex::Position => {
-                                    vertex.position = v[i];
+                            if !num.is_empty() {
+                                let n = num.parse::<i32>().map_err(|_| 
+                                    BrumousError::ParseInt(path.to_string(), count+1)
+                                )?;
+    
+                                let i = n as usize - 1;
+                                match parse {
+                                    Vertex::Position => {
+                                        vertex.position = v[i];
+                                    }
+                                    Vertex::TexCoords => {
+                                        vertex.tex_coords = vt[i];
+                                    }
+                                    Vertex::Normal => {
+                                        vertex.normal = vn[i];
+                                    }
                                 }
-                                Vertex::TexCoords => {
-                                    vertex.tex_coords = vt[i];
-                                }
-                                Vertex::Normal => {
-                                    vertex.normal = vn[i];
-                                }
+                                num.clear();
                             }
                             parse.next();
-                            num.clear();
                         }
                         else {
                             num.push(c);

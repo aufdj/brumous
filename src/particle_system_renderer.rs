@@ -11,6 +11,7 @@ use crate::particle::{
 use crate::ParticleSystemRendererDescriptor;
 use crate::matrix::Mat4x4;
 use crate::vector::Vec4;
+use crate::ParticleMeshType;
 
 const SHADER: &str = include_str!("particle.wgsl");
 
@@ -25,6 +26,22 @@ impl ViewData {
         Self {
             view_proj: Mat4x4::identity().into(),
             view_pos: Vec4::unit_y().into(),
+        }
+    }
+}
+
+impl From<&ParticleMeshType<'_>> for wgpu::PrimitiveTopology {
+    fn from(mesh_type: &ParticleMeshType) -> Self {
+        match mesh_type {
+            ParticleMeshType::Point => {
+                Self::PointList
+            }
+            ParticleMeshType::Cube => {
+                Self::TriangleList
+            }
+            _ => {
+                Self::TriangleList
+            }
         }
     }
 }
@@ -177,7 +194,7 @@ impl ParticleSystemRenderer {
                     ],
                 }),
                 primitive: wgpu::PrimitiveState {
-                    topology: wgpu::PrimitiveTopology::TriangleList,
+                    topology: wgpu::PrimitiveTopology::from(&desc.mesh_type),
                     strip_index_format: None,
                     front_face: wgpu::FrontFace::Ccw,
                     cull_mode: Some(wgpu::Face::Back),

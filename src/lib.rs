@@ -46,7 +46,7 @@ impl<'a, 'b> DrawParticleSystem<'a, 'b> for wgpu::RenderPass<'a> where 'a: 'b {
         for (i, group) in sys.renderer().bind_groups.iter().enumerate() {
             self.set_bind_group(i as u32, group, &[]);
         }
-        
+
         self.set_vertex_buffer(0, sys.renderer().mesh.vertex_buf.slice(..));
         self.set_vertex_buffer(1, sys.particle_buf().slice(..));
 
@@ -113,6 +113,7 @@ impl Default for ParticleSystemBounds {
 pub enum ParticleMeshType<'a> {
     #[default]
     Cube,
+    Point,
     Custom(&'a str),
 }
 
