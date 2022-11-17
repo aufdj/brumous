@@ -5,43 +5,61 @@ mod vector;
 mod matrix;
 mod quaternion;
 mod obj;
-mod particle_system_renderer;
+pub mod particle_system_renderer;
 pub mod error;
 pub mod particle_system;
 
 use crate::error::BrumousResult;
 use crate::particle_system::ParticleSystem;
+use crate::particle_system_renderer::ParticleSystemRenderer;
 use crate::vector::Vec3;
 
 /// Creates a new particle system.
 pub trait CreateParticleSystem {
     fn create_particle_system(
         &self, 
+        sys_desc: &ParticleSystemDescriptor,
+    ) -> BrumousResult<ParticleSystem>;
+
+    fn create_particle_system_renderer(
+        &self,
         queue: &wgpu::Queue, 
         config: &wgpu::SurfaceConfiguration,
-        sys_desc: &ParticleSystemDescriptor,
         rend_desc: &ParticleSystemRendererDescriptor, 
-    ) -> BrumousResult<ParticleSystem>;
+    ) -> BrumousResult<ParticleSystemRenderer>;
 }
 impl CreateParticleSystem for wgpu::Device {
     fn create_particle_system(
         &self, 
+        sys_desc: &ParticleSystemDescriptor,
+    ) -> BrumousResult<ParticleSystem> {
+        ParticleSystem::new(self, sys_desc)
+    }
+
+    fn create_particle_system_renderer(
+        &self,
         queue: &wgpu::Queue, 
         config: &wgpu::SurfaceConfiguration,
-        sys_desc: &ParticleSystemDescriptor,
         rend_desc: &ParticleSystemRendererDescriptor, 
-    ) -> BrumousResult<ParticleSystem> {
-        ParticleSystem::new(self, queue, config, sys_desc, rend_desc)
+    ) -> BrumousResult<ParticleSystemRenderer> {
+        ParticleSystemRenderer::new(self, queue, config, rend_desc)
     }
 }
 
 /// Draw particles in particle system
 pub trait DrawParticleSystem<'a, 'b> where 'a: 'b {
-    fn draw_particle_system(&'b mut self, sys: &'a ParticleSystem);
+    fn draw_particle_system(
+        &'b mut self, 
+        sys: &'a ParticleSystem, 
+        renderer: &'a ParticleSystemRenderer
+    );
 }
 impl<'a, 'b> DrawParticleSystem<'a, 'b> for wgpu::RenderPass<'a> where 'a: 'b {
-    fn draw_particle_system(&'b mut self, sys: &'a ParticleSystem) {
-        let renderer = sys.renderer();
+    fn draw_particle_system(
+        &'b mut self, 
+        sys: &'a ParticleSystem, 
+        renderer: &'a ParticleSystemRenderer
+    ) {
         self.set_pipeline(&renderer.pipeline);
 
         for (i, group) in renderer.bind_groups.iter().enumerate() {
@@ -60,6 +78,7 @@ impl<'a, 'b> DrawParticleSystem<'a, 'b> for wgpu::RenderPass<'a> where 'a: 'b {
         }
     }
 }
+
 
 /// Describe characteristics of a particle system.
 pub struct ParticleSystemDescriptor<'a> {
@@ -82,7 +101,6 @@ impl<'a> Default for ParticleSystemDescriptor<'a> {
         }
     }
 }
-
 
 /// Describes the range of possible values of a particle's traits.
 #[derive(Copy, Clone)]
@@ -109,6 +127,13 @@ impl Default for ParticleSystemBounds {
     }
 }
 
+
+#[derive(Default)]
+pub struct ParticleSystemRendererDescriptor<'a> {
+    pub texture: Option<&'a str>,
+    pub mesh_type: ParticleMeshType<'a>,
+}
+
 /// Defines model of each particle.
 #[derive(Default)]
 pub enum ParticleMeshType<'a> {
@@ -116,10 +141,4 @@ pub enum ParticleMeshType<'a> {
     Cube,
     Point,
     Custom(&'a str),
-}
-
-#[derive(Default)]
-pub struct ParticleSystemRendererDescriptor<'a> {
-    pub texture: Option<&'a str>,
-    pub mesh_type: ParticleMeshType<'a>,
 }

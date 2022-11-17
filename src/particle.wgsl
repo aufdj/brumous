@@ -39,8 +39,6 @@ var smpl: sampler;
 struct Light {
     pos: vec4<f32>,
     color: vec4<f32>,
-    pad1: vec4<f32>,
-    pad2: vec4<f32>,
 };
 @group(2) @binding(0)
 var<storage, read> lights: array<Light>;

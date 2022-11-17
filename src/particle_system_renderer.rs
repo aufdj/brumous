@@ -9,43 +9,12 @@ use crate::particle::{
     ParticleMesh
 };
 use crate::ParticleSystemRendererDescriptor;
-use crate::particle_system::Light;
 use crate::matrix::Mat4x4;
 use crate::vector::Vec4;
 use crate::ParticleMeshType;
 
 const SHADER: &str = include_str!("particle.wgsl");
 
-#[repr(C)]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
-struct ViewData {
-    view_proj: [[f32; 4]; 4],
-    view_pos: [f32; 4],
-}
-impl ViewData {
-    fn new() -> Self {
-        Self {
-            view_proj: Mat4x4::identity().into(),
-            view_pos: Vec4::unit_y().into(),
-        }
-    }
-}
-
-impl From<&ParticleMeshType<'_>> for wgpu::PrimitiveTopology {
-    fn from(mesh_type: &ParticleMeshType) -> Self {
-        match mesh_type {
-            ParticleMeshType::Point => {
-                Self::PointList
-            }
-            ParticleMeshType::Cube => {
-                Self::TriangleList
-            }
-            _ => {
-                Self::TriangleList
-            }
-        }
-    }
-}
 
 pub struct ParticleSystemRenderer {
     pub pipeline:    wgpu::RenderPipeline,
@@ -75,7 +44,7 @@ impl ParticleSystemRenderer {
         let view_data = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: Some("View Data Buffer"),
-                contents: bytemuck::cast_slice(&[ViewData::new()]),
+                contents: bytemuck::cast_slice(&[ViewData::default()]),
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             }
         );
@@ -271,16 +240,73 @@ impl ParticleSystemRenderer {
             }
         )
     }
-    pub fn add_light(&mut self, queue: &wgpu::Queue, light: Light) {
+
+    pub fn add_light(&mut self, queue: &wgpu::Queue, position: [f32; 4], color: [f32; 4]) {
         if self.light_count >= 10 {
             panic!("Maximum light count reached");
         }
         queue.write_buffer(
             &self.lights, 
             self.light_count * Light::size(), 
-            bytemuck::cast_slice(&[light])
+            bytemuck::cast_slice(&[Light::new(position, color)])
         );
         self.light_count += 1;
     }
+
+    pub fn set_view_proj(&mut self, queue: &wgpu::Queue, vp: [[f32; 4]; 4]) {
+        queue.write_buffer(&self.view_data, 0, bytemuck::cast_slice(&[vp]));
+    }
+
+    pub fn set_view_pos(&mut self, queue: &wgpu::Queue, vp: [f32; 4]) {
+        queue.write_buffer(&self.view_data, 64, bytemuck::cast_slice(&[vp]));
+    }
 }
 
+#[repr(C)]
+#[derive(Copy, Clone, Default, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct Light {
+    position: [f32; 4],
+    color: [f32; 4],
+}
+impl Light {
+    pub fn new(position: [f32; 4], color: [f32; 4]) -> Self {
+        Self {
+            position,
+            color,
+        }
+    }
+    pub fn size() -> u64 {
+        std::mem::size_of::<Self>() as u64
+    }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+struct ViewData {
+    view_proj: [[f32; 4]; 4],
+    view_pos: [f32; 4],
+}
+impl Default for ViewData {
+    fn default() -> Self {
+        Self {
+            view_proj: Mat4x4::identity().into(),
+            view_pos: Vec4::unit_y().into(),
+        }
+    }
+}
+
+impl From<&ParticleMeshType<'_>> for wgpu::PrimitiveTopology {
+    fn from(mesh_type: &ParticleMeshType) -> Self {
+        match mesh_type {
+            ParticleMeshType::Point => {
+                Self::PointList
+            }
+            ParticleMeshType::Cube => {
+                Self::TriangleList
+            }
+            _ => {
+                Self::TriangleList
+            }
+        }
+    }
+}

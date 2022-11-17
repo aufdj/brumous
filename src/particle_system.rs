@@ -5,8 +5,6 @@ use std::collections::VecDeque;
 use crate::particle::*;
 use crate::random::Randf32;
 use crate::error::BrumousResult;
-use crate::particle_system_renderer::ParticleSystemRenderer;
-use crate::ParticleSystemRendererDescriptor;
 use crate::ParticleSystemDescriptor;
 use crate::ParticleSystemBounds;
 use crate::vector::Vec3;
@@ -27,15 +25,11 @@ pub struct ParticleSystem {
     bounds:     ParticleSystemBounds,
     forces:     Vec<Vec3>,
     rand:       Randf32,
-    renderer:   ParticleSystemRenderer,
 }
 impl ParticleSystem {
     pub fn new(
         device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        config: &wgpu::SurfaceConfiguration,
         sys_desc: &ParticleSystemDescriptor,
-        rend_desc: &ParticleSystemRendererDescriptor, 
     ) -> BrumousResult<Self> {
         let particles = vec![Particle::default(); sys_desc.max];
 
@@ -49,8 +43,6 @@ impl ParticleSystem {
 
         let spawnqueue = VecDeque::from((0..sys_desc.max).collect::<Vec<usize>>());
 
-        let renderer = ParticleSystemRenderer::new(device, queue, config, rend_desc)?;
-
         Ok(
             Self {
                 particles,
@@ -60,11 +52,10 @@ impl ParticleSystem {
                 position:   sys_desc.pos,
                 name:       sys_desc.name.to_string(),
                 life:       sys_desc.life,
-                attractors: Vec::new(),
                 bounds:     sys_desc.bounds,
+                attractors: Vec::new(),
                 forces:     Vec::new(),
                 rand:       Randf32::new(),
-                renderer,
             }
         )
     }
@@ -133,11 +124,9 @@ impl ParticleSystem {
     /// Set max number of particles.
     pub fn set_max_particles(&mut self, new_max: usize, device: &wgpu::Device) {
         let old_max = self.particles.len();
-
         if new_max == old_max {
             return;
         }
-
         self.particles.resize(new_max, Particle::default());
 
         if new_max < old_max {
@@ -214,22 +203,6 @@ impl ParticleSystem {
     pub fn add_attractor(&mut self, pos: [f32; 3], mass: f32) {
         self.attractors.push(ParticleAttractor::new(pos, mass));
     }
-
-    pub fn add_light(&mut self, queue: &wgpu::Queue, position: [f32; 4], color: [f32; 4]) {
-        self.renderer.add_light(queue, Light::new(position, color));
-    }
-
-    pub fn set_view_proj(&mut self, queue: &wgpu::Queue, vp: [[f32; 4]; 4]) {
-        queue.write_buffer(&self.renderer.view_data, 0, bytemuck::cast_slice(&[vp]));
-    }
-
-    pub fn set_view_pos(&mut self, queue: &wgpu::Queue, vp: [f32; 4]) {
-        queue.write_buffer(&self.renderer.view_data, 64, bytemuck::cast_slice(&[vp]));
-    }
-
-    pub fn renderer(&self) -> &ParticleSystemRenderer {
-        &self.renderer
-    }
 }
 
 pub struct ParticleAttractor {
@@ -242,43 +215,5 @@ impl ParticleAttractor {
             pos: pos.into(), 
             mass 
         }
-    }
-}
-
-#[repr(C)]
-#[derive(Copy, Clone, Default, bytemuck::Pod, bytemuck::Zeroable)]
-pub struct Light {
-    position: [f32; 4],
-    color: [f32; 4],
-    pad1: [f32; 4],
-    pad2: [f32; 4],
-}
-impl Light {
-    fn new(position: [f32; 4], color: [f32; 4]) -> Self {
-        Self {
-            position,
-            color,
-            pad1: [0.0; 4],
-            pad2: [0.0; 4]
-        }
-    }
-    pub fn green() -> Self {
-        Self {
-            position: [0.0, 0.0, 0.0, 0.0], 
-            color: [0.0, 1.0, 0.0, 1.0],
-            pad1: [0.0; 4],
-            pad2: [0.0; 4]
-        }
-    }
-    pub fn red() -> Self {
-        Self {
-            position: [1.0, 0.0, 0.0, 0.0], 
-            color: [1.0, 0.0, 0.0, 1.0],
-            pad1: [0.0; 4],
-            pad2: [0.0; 4]
-        }
-    }
-    pub fn size() -> u64 {
-        std::mem::size_of::<Self>() as u64
     }
 }
