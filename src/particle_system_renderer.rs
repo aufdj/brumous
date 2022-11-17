@@ -9,6 +9,7 @@ use crate::particle::{
     ParticleMesh
 };
 use crate::ParticleSystemRendererDescriptor;
+use crate::particle_system::Light;
 use crate::matrix::Mat4x4;
 use crate::vector::Vec4;
 use crate::ParticleMeshType;
@@ -50,7 +51,9 @@ pub struct ParticleSystemRenderer {
     pub pipeline:    wgpu::RenderPipeline,
     pub bind_groups: Vec<wgpu::BindGroup>,
     pub view_data:   wgpu::Buffer,
+    pub lights:      wgpu::Buffer,
     pub mesh:        ParticleMesh,
+    pub light_count: u64,
 }
 impl ParticleSystemRenderer {
     pub fn new(
@@ -74,6 +77,14 @@ impl ParticleSystemRenderer {
                 label: Some("View Data Buffer"),
                 contents: bytemuck::cast_slice(&[ViewData::new()]),
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
+            }
+        );
+
+        let lights = device.create_buffer_init(
+            &wgpu::util::BufferInitDescriptor {
+                label: Some("Lights Buffer"),
+                contents: bytemuck::cast_slice(&[Light::default(); 10]),
+                usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             }
         );
 
@@ -121,6 +132,25 @@ impl ParticleSystemRenderer {
                         }
                     ]
                 }
+            ),
+            &device.create_bind_group_layout(
+                &wgpu::BindGroupLayoutDescriptor {
+                    label: Some("Lights Bind Group Layout"),
+                    entries: &[
+                        wgpu::BindGroupLayoutEntry {
+                            binding: 0,
+                            visibility: wgpu::ShaderStages::FRAGMENT,
+                            ty: wgpu::BindingType::Buffer {
+                                ty: wgpu::BufferBindingType::Storage {
+                                    read_only: true,
+                                },
+                                has_dynamic_offset: false,
+                                min_binding_size: None,
+                            },
+                            count: None,
+                        },
+                    ]
+                }
             )
         ];
 
@@ -149,6 +179,18 @@ impl ParticleSystemRenderer {
                         wgpu::BindGroupEntry {
                             binding: 1,
                             resource: wgpu::BindingResource::Sampler(&texture.sampler),
+                        },
+                    ],
+                }
+            ),
+            device.create_bind_group(
+                &wgpu::BindGroupDescriptor {
+                    label: Some("Lights Bind Group"),
+                    layout: bind_layouts[2],
+                    entries: &[
+                        wgpu::BindGroupEntry {
+                            binding: 0,
+                            resource: lights.as_entire_binding(),
                         },
                     ],
                 }
@@ -223,9 +265,22 @@ impl ParticleSystemRenderer {
                 pipeline,
                 bind_groups,
                 view_data,
+                lights,
                 mesh,
+                light_count: 0,
             }
         )
+    }
+    pub fn add_light(&mut self, queue: &wgpu::Queue, light: Light) {
+        if self.light_count >= 10 {
+            panic!("Maximum light count reached");
+        }
+        queue.write_buffer(
+            &self.lights, 
+            self.light_count * Light::size(), 
+            bytemuck::cast_slice(&[light])
+        );
+        self.light_count += 1;
     }
 }
 

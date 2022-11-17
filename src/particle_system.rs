@@ -212,7 +212,11 @@ impl ParticleSystem {
     }
 
     pub fn add_attractor(&mut self, pos: [f32; 3], mass: f32) {
-        self.attractors.push(ParticleAttractor::new(pos.into(), mass));
+        self.attractors.push(ParticleAttractor::new(pos, mass));
+    }
+
+    pub fn add_light(&mut self, queue: &wgpu::Queue, position: [f32; 4], color: [f32; 4]) {
+        self.renderer.add_light(queue, Light::new(position, color));
     }
 
     pub fn set_view_proj(&mut self, queue: &wgpu::Queue, vp: [[f32; 4]; 4]) {
@@ -238,5 +242,43 @@ impl ParticleAttractor {
             pos: pos.into(), 
             mass 
         }
+    }
+}
+
+#[repr(C)]
+#[derive(Copy, Clone, Default, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct Light {
+    position: [f32; 4],
+    color: [f32; 4],
+    pad1: [f32; 4],
+    pad2: [f32; 4],
+}
+impl Light {
+    fn new(position: [f32; 4], color: [f32; 4]) -> Self {
+        Self {
+            position,
+            color,
+            pad1: [0.0; 4],
+            pad2: [0.0; 4]
+        }
+    }
+    pub fn green() -> Self {
+        Self {
+            position: [0.0, 0.0, 0.0, 0.0], 
+            color: [0.0, 1.0, 0.0, 1.0],
+            pad1: [0.0; 4],
+            pad2: [0.0; 4]
+        }
+    }
+    pub fn red() -> Self {
+        Self {
+            position: [1.0, 0.0, 0.0, 0.0], 
+            color: [1.0, 0.0, 0.0, 1.0],
+            pad1: [0.0; 4],
+            pad2: [0.0; 4]
+        }
+    }
+    pub fn size() -> u64 {
+        std::mem::size_of::<Self>() as u64
     }
 }

@@ -36,6 +36,16 @@ var tx: texture_2d<f32>;
 @group(1) @binding(1)
 var smpl: sampler;
 
+struct Light {
+    pos: vec4<f32>,
+    color: vec4<f32>,
+    pad1: vec4<f32>,
+    pad2: vec4<f32>,
+};
+@group(2) @binding(0)
+var<storage, read> lights: array<Light>;
+
+
 @vertex
 fn vs_main(vertex: VertexInput, particle: ParticleInput) -> VertexOutput {
     var out: VertexOutput;
@@ -63,48 +73,55 @@ fn vs_main(vertex: VertexInput, particle: ParticleInput) -> VertexOutput {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let light_pos = vec3<f32>(0.8, 0.0, 0.0);
-    let light_col = vec3<f32>(1.0, 1.0, 1.0);
+    var result = vec3<f32>(0.0, 0.0, 0.0);
 
-    let ambient_strength = 0.1;
-    let ambient_color = light_col * ambient_strength;
+    for (var i: i32 = 0; i < i32(arrayLength(&lights)); i++) {
+        let light_pos = lights[i].pos.xyz;
+        let light_color = lights[i].color.xyz;
 
-    let light_dir = normalize(light_pos - in.world_pos);
-    let diffuse_strength = max(dot(in.world_norm, light_dir), 0.0);
-    let diffuse_color = light_col * diffuse_strength;
+        let ambient_strength = 0.1;
+        let ambient_color = light_color * ambient_strength;
 
-    let view_dir = normalize(camera.view_pos.xyz - in.world_pos);
-    let reflect_dir = reflect(-light_dir, in.world_norm);
+        let light_dir = normalize(light_pos - in.world_pos);
+        let diffuse_strength = max(dot(in.world_norm, light_dir), 0.0);
+        let diffuse_color = light_color * diffuse_strength;
 
-    let specular_strength = pow(max(dot(view_dir, reflect_dir), 0.0), 32.0);
-    let specular_color = specular_strength * light_col;
+        let view_dir = normalize(camera.view_pos.xyz - in.world_pos);
+        let reflect_dir = reflect(-light_dir, in.world_norm);
 
-    let result = (ambient_color + diffuse_color + specular_color) * in.color.xyz;
+        let specular_strength = pow(max(dot(view_dir, reflect_dir), 0.0), 32.0);
+        let specular_color = specular_strength * light_color;
 
+        result += (ambient_color + diffuse_color + specular_color) * in.color.xyz;
+    }
     return vec4<f32>(result, in.color.a);
 }
 
 
-@fragment
-fn fs_texture(in: VertexOutput) -> @location(0) vec4<f32> {
-    let light_pos = vec3<f32>(0.0, 1.0, 0.0);
-    let light_col = vec3<f32>(1.0, 1.0, 1.0);
-    let obj_col: vec4<f32> = textureSample(tx, smpl, in.uv);
+// @fragment
+// fn fs_texture(in: VertexOutput) -> @location(0) vec4<f32> {
+//     let obj_col: vec4<f32> = textureSample(tx, smpl, in.uv);
 
-    let ambient_strength = 0.1;
-    let ambient_color = light_col * ambient_strength;
+//     var result = vec3<f32>(0.0, 0.0, 0.0);
+    
+//      for (var i: i32 = 0; i < i32(arrayLength(&lights)); i++) {
+//         let light_pos = lights[i].pos.xyz;
+//         let light_color = lights[i].color.xyz;
 
-    let light_dir = normalize(light_pos - in.world_pos);
-    let diffuse_strength = max(dot(in.world_norm, light_dir), 0.0);
-    let diffuse_color = light_col * diffuse_strength;
+//         let ambient_strength = 0.1;
+//         let ambient_color = light_color * ambient_strength;
 
-    let view_dir = normalize(camera.view_pos.xyz - in.world_pos);
-    let reflect_dir = reflect(-light_dir, in.world_norm);
+//         let light_dir = normalize(light_pos - in.world_pos);
+//         let diffuse_strength = max(dot(in.world_norm, light_dir), 0.0);
+//         let diffuse_color = light_color * diffuse_strength;
 
-    let specular_strength = pow(max(dot(view_dir, reflect_dir), 0.0), 32.0);
-    let specular_color = specular_strength * light_col;
+//         let view_dir = normalize(camera.view_pos.xyz - in.world_pos);
+//         let reflect_dir = reflect(-light_dir, in.world_norm);
 
-    let result = (ambient_color + diffuse_color + specular_color) * obj_col.xyz;
+//         let specular_strength = pow(max(dot(view_dir, reflect_dir), 0.0), 32.0);
+//         let specular_color = specular_strength * light_color;
 
-    return vec4<f32>(result, obj_col.a);
-}
+//         result += (ambient_color + diffuse_color + specular_color) * obj_col.xyz;
+//     }
+//     return vec4<f32>(result, obj_col.a);
+// }

@@ -40,11 +40,11 @@ impl Particle {
     pub fn new(rand: &mut Randf32, bounds: &ParticleSystemBounds, pos: &Vec3) -> Self {
         Self {
             position: rand.vec3_in(&bounds.area) + *pos,
-            velocity: rand.vec3_in(&bounds.velocity), 
-            rotation: rand.quat_in(&bounds.rotation), 
+            velocity: rand.vec3_in(&bounds.velocity),
+            rotation: rand.quat_in(&bounds.rotation),
             color:    rand.vec4_in(&bounds.color),
             scale:    rand.f32_in(&bounds.scale),
-            life:     rand.f32_in(&bounds.life), 
+            life:     rand.f32_in(&bounds.life),
             mass:     rand.f32_in(&bounds.mass),
             queued:   false,
         }

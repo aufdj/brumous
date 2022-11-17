@@ -14,7 +14,6 @@ impl Texture {
 
     pub fn new(device: &wgpu::Device, queue: &wgpu::Queue, texture_path: Option<&str>) -> BrumousResult<Self> {
         let texture = if let Some(path) = texture_path {
-
             let data = fs::read(path)
                 .map_err(|e| BrumousError::OpenTexture(path.to_string(), e))?;
 

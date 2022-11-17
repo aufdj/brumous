@@ -41,43 +41,44 @@ pub trait DrawParticleSystem<'a, 'b> where 'a: 'b {
 }
 impl<'a, 'b> DrawParticleSystem<'a, 'b> for wgpu::RenderPass<'a> where 'a: 'b {
     fn draw_particle_system(&'b mut self, sys: &'a ParticleSystem) {
-        self.set_pipeline(&sys.renderer().pipeline);
+        let renderer = sys.renderer();
+        self.set_pipeline(&renderer.pipeline);
 
-        for (i, group) in sys.renderer().bind_groups.iter().enumerate() {
+        for (i, group) in renderer.bind_groups.iter().enumerate() {
             self.set_bind_group(i as u32, group, &[]);
         }
 
-        self.set_vertex_buffer(0, sys.renderer().mesh.vertex_buf.slice(..));
+        self.set_vertex_buffer(0, renderer.mesh.vertex_buf.slice(..));
         self.set_vertex_buffer(1, sys.particle_buf().slice(..));
 
-        if let Some(index_buf) = &sys.renderer().mesh.index_buf {
+        if let Some(index_buf) = &renderer.mesh.index_buf {
             self.set_index_buffer(index_buf.slice(..), wgpu::IndexFormat::Uint16);
-            self.draw_indexed(0..sys.renderer().mesh.index_count, 0, 0..sys.particle_count());
+            self.draw_indexed(0..renderer.mesh.index_count, 0, 0..sys.particle_count());
         }
         else {
-            self.draw(0..sys.renderer().mesh.vertex_count, 0..sys.particle_count());
+            self.draw(0..renderer.mesh.vertex_count, 0..sys.particle_count());
         }
     }
 }
 
 /// Describe characteristics of a particle system.
 pub struct ParticleSystemDescriptor<'a> {
-    pub max:        usize,
-    pub rate:       usize,
-    pub pos:        Vec3,
-    pub name:       &'a str,
-    pub life:       f32,
-    pub bounds:     ParticleSystemBounds,
+    pub max:    usize,
+    pub rate:   usize,
+    pub pos:    Vec3,
+    pub name:   &'a str,
+    pub life:   f32,
+    pub bounds: ParticleSystemBounds,
 }
 impl<'a> Default for ParticleSystemDescriptor<'a> {
     fn default() -> Self {
         Self {
-            max:        500,
-            rate:       1,
-            pos:        Vec3::zero(),
-            name:       "Particle System",
-            life:       1000.0,
-            bounds:     ParticleSystemBounds::default(),
+            max:    500,
+            rate:   1,
+            pos:    Vec3::zero(),
+            name:   "Particle System",
+            life:   1000.0,
+            bounds: ParticleSystemBounds::default(),
         }
     }
 }

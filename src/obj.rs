@@ -47,56 +47,56 @@ pub fn parse_obj_file(device: &wgpu::Device, data: &str, path: &str) -> BrumousR
     let mut vt = Vec::<[f32; 2]>::new(); // Texture coordinates
     let mut vn = Vec::<[f32; 3]>::new(); // Normals
 
-    let mut floats = Vec::new(); 
+    let mut floats = Vec::new();
     let mut num = String::new();
 
-    for (count, line) in data.lines().enumerate() {
+    for (line, count) in data.lines().zip(1..) {
         let mut string = line.split_whitespace();
         match string.next() {
             Some("v") => {
-                while let Some(s) = string.next() {
+                for s in string {
                     floats.push(
                         s.parse::<f32>().map_err(|_| 
-                            BrumousError::ParseFloat(path.to_string(), count+1)
+                            BrumousError::ParseFloat(path.to_string(), count)
                         )?
                     );
                 }
                 v.push(
                     floats[..3].try_into().map_err(|_| 
-                        BrumousError::InvalidVertexData(path.to_string(), count+1)
+                        BrumousError::InvalidVertexData(path.to_string(), count)
                     )?
                 );
             }
             Some("vt") => {
-                while let Some(s) = string.next() {
+                for s in string {
                     floats.push(
                         s.parse::<f32>().map_err(|_| 
-                            BrumousError::ParseFloat(path.to_string(), count+1)
+                            BrumousError::ParseFloat(path.to_string(), count)
                         )?
                     );
                 }
                 vt.push(
                     floats[..2].try_into().map_err(|_| 
-                        BrumousError::InvalidVertexData(path.to_string(), count+1)
+                        BrumousError::InvalidVertexData(path.to_string(), count)
                     )?
                 );
             }
             Some("vn") => {
-                while let Some(s) = string.next() {
+                for s in string {
                     floats.push(
                         s.parse::<f32>().map_err(|_| 
-                            BrumousError::ParseFloat(path.to_string(), count+1)
+                            BrumousError::ParseFloat(path.to_string(), count)
                         )?
                     );
                 }
                 vn.push(
                     floats[..3].try_into().map_err(|_| 
-                        BrumousError::InvalidVertexData(path.to_string(), count+1)
+                        BrumousError::InvalidVertexData(path.to_string(), count)
                     )?
                 );
             }
             Some("f") => {
-                while let Some(s) = string.next() {
+                for s in string {
                     let mut parse = Vertex::Position;
                     let mut vertex = ParticleVertex::default();
                     for c in s.chars() {
