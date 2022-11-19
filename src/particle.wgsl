@@ -77,7 +77,7 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         let light_pos = lights[i].pos.xyz;
         let light_color = lights[i].color.xyz;
 
-        let ambient_strength = 0.1;
+        let ambient_strength = 0.2;
         let ambient_color = light_color * ambient_strength;
 
         let light_dir = normalize(light_pos - in.world_pos);
@@ -86,7 +86,6 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 
         let view_dir = normalize(camera.view_pos.xyz - in.world_pos);
         let reflect_dir = reflect(-light_dir, in.world_norm);
-
         let specular_strength = pow(max(dot(view_dir, reflect_dir), 0.0), 32.0);
         let specular_color = specular_strength * light_color;
 

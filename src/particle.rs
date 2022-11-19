@@ -92,7 +92,7 @@ impl Default for Particle {
 }
 
 #[repr(C)]
-#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Copy, Clone, Default, bytemuck::Pod, bytemuck::Zeroable)]
 pub struct ParticleInstance {
     model:  [[f32; 4]; 4],
     normal: [[f32; 3]; 3],
@@ -101,13 +101,6 @@ pub struct ParticleInstance {
 impl ParticleInstance {
     pub fn size() -> u64 {
         mem::size_of::<Self>() as u64
-    }
-    pub fn empty() -> Self {
-        Self {
-            model: [[0.0; 4]; 4],
-            normal: [[0.0; 3]; 3],
-            color: [0.0; 4],
-        }
     }
     const ATTRIBUTES: [wgpu::VertexAttribute; 8] = wgpu::vertex_attr_array![
         5 => Float32x4,  6 => Float32x4,  7 => Float32x4, 8 => Float32x4,

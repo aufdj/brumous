@@ -40,6 +40,7 @@ pub fn read_obj_file(device: &wgpu::Device, mesh_type: &ParticleMeshType) -> Bru
 }
 
 pub fn parse_obj_file(device: &wgpu::Device, data: &str, path: &str) -> BrumousResult<ParticleMesh> {
+    let path = path.to_string();
     let mut vertices = Vec::<ParticleVertex>::new();
     let indices = Vec::<u16>::new();
 

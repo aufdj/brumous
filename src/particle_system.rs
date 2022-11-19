@@ -99,7 +99,7 @@ impl ParticleSystem {
                     queue.write_buffer(
                         &self.buf,
                         index as u64 * ParticleInstance::size(),
-                        bytemuck::cast_slice(&[ParticleInstance::empty()])
+                        bytemuck::cast_slice(&[ParticleInstance::default()])
                     );
                 }
             }

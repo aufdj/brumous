@@ -19,15 +19,15 @@ const SHADER: &str = include_str!("particle.wgsl");
 pub struct ParticleSystemRenderer {
     pub pipeline:    wgpu::RenderPipeline,
     pub bind_groups: Vec<wgpu::BindGroup>,
+    pub mesh:        ParticleMesh,
     pub view_data:   wgpu::Buffer,
     pub lights:      wgpu::Buffer,
-    pub mesh:        ParticleMesh,
     pub light_count: u64,
 }
 impl ParticleSystemRenderer {
     pub fn new(
-        device: &wgpu::Device, 
-        queue: &wgpu::Queue, 
+        device: &wgpu::Device,
+        queue: &wgpu::Queue,
         config: &wgpu::SurfaceConfiguration,
         desc: &ParticleSystemRendererDescriptor,
     ) -> BrumousResult<Self> {
@@ -83,8 +83,8 @@ impl ParticleSystemRenderer {
                             binding: 0,
                             visibility: wgpu::ShaderStages::FRAGMENT,
                             ty: wgpu::BindingType::Texture {
-                                sample_type: wgpu::TextureSampleType::Float { 
-                                    filterable: true 
+                                sample_type: wgpu::TextureSampleType::Float {
+                                    filterable: true
                                 },
                                 view_dimension: wgpu::TextureViewDimension::D2,
                                 multisampled: false,
@@ -233,9 +233,9 @@ impl ParticleSystemRenderer {
             Self {
                 pipeline,
                 bind_groups,
+                mesh,
                 view_data,
                 lights,
-                mesh,
                 light_count: 0,
             }
         )

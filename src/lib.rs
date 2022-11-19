@@ -18,31 +18,31 @@ use crate::vector::Vec3;
 pub trait CreateParticleSystem {
     fn create_particle_system(
         &self, 
-        sys_desc: &ParticleSystemDescriptor,
+        desc: &ParticleSystemDescriptor,
     ) -> BrumousResult<ParticleSystem>;
 
     fn create_particle_system_renderer(
         &self,
         queue: &wgpu::Queue, 
         config: &wgpu::SurfaceConfiguration,
-        rend_desc: &ParticleSystemRendererDescriptor, 
+        desc: &ParticleSystemRendererDescriptor, 
     ) -> BrumousResult<ParticleSystemRenderer>;
 }
 impl CreateParticleSystem for wgpu::Device {
     fn create_particle_system(
         &self, 
-        sys_desc: &ParticleSystemDescriptor,
+        desc: &ParticleSystemDescriptor,
     ) -> BrumousResult<ParticleSystem> {
-        ParticleSystem::new(self, sys_desc)
+        ParticleSystem::new(self, desc)
     }
 
     fn create_particle_system_renderer(
         &self,
         queue: &wgpu::Queue, 
         config: &wgpu::SurfaceConfiguration,
-        rend_desc: &ParticleSystemRendererDescriptor, 
+        desc: &ParticleSystemRendererDescriptor, 
     ) -> BrumousResult<ParticleSystemRenderer> {
-        ParticleSystemRenderer::new(self, queue, config, rend_desc)
+        ParticleSystemRenderer::new(self, queue, config, desc)
     }
 }
 
@@ -51,30 +51,30 @@ pub trait DrawParticleSystem<'a, 'b> where 'a: 'b {
     fn draw_particle_system(
         &'b mut self, 
         sys: &'a ParticleSystem, 
-        renderer: &'a ParticleSystemRenderer
+        rend: &'a ParticleSystemRenderer
     );
 }
 impl<'a, 'b> DrawParticleSystem<'a, 'b> for wgpu::RenderPass<'a> where 'a: 'b {
     fn draw_particle_system(
         &'b mut self, 
         sys: &'a ParticleSystem, 
-        renderer: &'a ParticleSystemRenderer
+        rend: &'a ParticleSystemRenderer
     ) {
-        self.set_pipeline(&renderer.pipeline);
+        self.set_pipeline(&rend.pipeline);
 
-        for (i, group) in renderer.bind_groups.iter().enumerate() {
+        for (i, group) in rend.bind_groups.iter().enumerate() {
             self.set_bind_group(i as u32, group, &[]);
         }
 
-        self.set_vertex_buffer(0, renderer.mesh.vertex_buf.slice(..));
+        self.set_vertex_buffer(0, rend.mesh.vertex_buf.slice(..));
         self.set_vertex_buffer(1, sys.particle_buf().slice(..));
 
-        if let Some(index_buf) = &renderer.mesh.index_buf {
+        if let Some(index_buf) = &rend.mesh.index_buf {
             self.set_index_buffer(index_buf.slice(..), wgpu::IndexFormat::Uint16);
-            self.draw_indexed(0..renderer.mesh.index_count, 0, 0..sys.particle_count());
+            self.draw_indexed(0..rend.mesh.index_count, 0, 0..sys.particle_count());
         }
         else {
-            self.draw(0..renderer.mesh.vertex_count, 0..sys.particle_count());
+            self.draw(0..rend.mesh.vertex_count, 0..sys.particle_count());
         }
     }
 }
