@@ -7,10 +7,15 @@ use crate::random::Randf32;
 use crate::error::BrumousResult;
 use crate::ParticleSystemDescriptor;
 use crate::ParticleSystemBounds;
-use crate::vector::Vec3;
+use crate::vector::{Vec3, Vec4};
 
 use wgpu::util::DeviceExt;
 
+
+pub enum ParticleAnimation {
+    Color(Box<dyn Fn(Vec4, f32) -> Vec4>),
+    Scale(Box<dyn Fn(f32, f32) -> f32>),
+}
 
 /// A ParticleSystem manages a set of particles.
 pub struct ParticleSystem {
@@ -25,6 +30,7 @@ pub struct ParticleSystem {
     bounds:     ParticleSystemBounds,
     forces:     Vec<Vec3>,
     rand:       Randf32,
+    anims:      Vec<ParticleAnimation>,
 }
 impl ParticleSystem {
     pub fn new(
@@ -56,6 +62,7 @@ impl ParticleSystem {
                 attractors: Vec::new(),
                 forces:     Vec::new(),
                 rand:       Randf32::new(),
+                anims:      Vec::new(),
             }
         )
     }
@@ -72,7 +79,9 @@ impl ParticleSystem {
     }
 
     /// Spawn new particles and update existing particles, should be called every frame.
-    pub fn update(&mut self, delta: Duration, queue: &wgpu::Queue) {
+    pub fn update(&mut self, delta: Duration, queue: &wgpu::Queue, vp: [f32; 3]) {
+        let view_pos = Vec3::from(vp);
+
         let delta = delta.as_millis() as f32 / 1000.0;
         if self.life >= 0.0 {
             self.respawn_particles(self.rate);
@@ -82,8 +91,13 @@ impl ParticleSystem {
         for (index, particle) in self.particles.iter_mut().enumerate() {
             particle.life -= delta;
             if particle.life > 0.0 {
-                particle.update(delta, &self.attractors, &self.forces);
+                particle.update_pos(delta, &self.attractors, &self.forces);
+                particle.cam_dist = (particle.position - view_pos).len();
 
+                for anim in self.anims.iter() {
+                    particle.animate(delta, anim);
+                }
+                
                 queue.write_buffer(
                     &self.buf,
                     index as u64 * ParticleInstance::size(),
@@ -203,6 +217,10 @@ impl ParticleSystem {
     pub fn add_attractor(&mut self, pos: [f32; 3], mass: f32) {
         self.attractors.push(ParticleAttractor::new(pos, mass));
     }
+
+    pub fn add_animation(&mut self, anim: ParticleAnimation) {
+        self.anims.push(anim);
+    }
 }
 
 pub struct ParticleAttractor {
@@ -214,6 +232,30 @@ impl ParticleAttractor {
         Self { 
             pos: pos.into(), 
             mass 
+        }
+    }
+}
+
+pub struct ParticleSystemSet(pub Vec<ParticleSystem>);
+
+impl ParticleSystemSet {
+    pub fn new(systems: Vec<ParticleSystem>) -> Self {
+        Self(systems)
+    }
+
+    pub fn systems(&self) -> &[ParticleSystem] {
+        &self.0
+    }
+
+    pub fn update(&mut self, delta: Duration, queue: &wgpu::Queue, vp: [f32; 3]) {
+        for sys in self.0.iter_mut() {
+            sys.update(delta, queue, vp);
+        }
+    }
+
+    pub fn add_attractor(&mut self, pos: [f32; 3], mass: f32) {
+        for sys in self.0.iter_mut() {
+            sys.attractors.push(ParticleAttractor::new(pos, mass));
         }
     }
 }

@@ -12,6 +12,7 @@ pub enum BrumousError {
     InvalidVertexData(String, usize),
     OpenTexture(String, io::Error),
     LoadTexture(String, ImageError),
+    InvalidLightIndex(u64, u64),
 }
 
 impl From<io::Error> for BrumousError {
@@ -53,6 +54,12 @@ impl fmt::Display for BrumousError {
                 write!(f, "
                     \rError loading texture {path}:
                     \r{err}",
+                )
+            }
+            BrumousError::InvalidLightIndex(idx, max) => {
+                write!(f, "
+                    \rError adding light at index {idx}, 
+                    \rwhich exceeds the maximum of {max}",
                 )
             }
         }

@@ -11,6 +11,7 @@ pub mod particle_system;
 
 use crate::error::BrumousResult;
 use crate::particle_system::ParticleSystem;
+use crate::particle_system::ParticleSystemSet;
 use crate::particle_system_renderer::ParticleSystemRenderer;
 use crate::vector::Vec3;
 
@@ -20,6 +21,11 @@ pub trait CreateParticleSystem {
         &self, 
         desc: &ParticleSystemDescriptor,
     ) -> BrumousResult<ParticleSystem>;
+
+    fn create_particle_system_set(
+        &self,
+        descs: &[&ParticleSystemDescriptor],
+    ) -> BrumousResult<ParticleSystemSet>;
 
     fn create_particle_system_renderer(
         &self,
@@ -34,6 +40,17 @@ impl CreateParticleSystem for wgpu::Device {
         desc: &ParticleSystemDescriptor,
     ) -> BrumousResult<ParticleSystem> {
         ParticleSystem::new(self, desc)
+    }
+
+    fn create_particle_system_set(
+        &self,
+        descs: &[&ParticleSystemDescriptor],
+    ) -> BrumousResult<ParticleSystemSet> {
+        let mut systems = Vec::<ParticleSystem>::new();
+        for desc in descs.iter() {
+            systems.push(ParticleSystem::new(self, desc)?);
+        }
+        Ok(ParticleSystemSet::new(systems))
     }
 
     fn create_particle_system_renderer(
@@ -51,6 +68,12 @@ pub trait DrawParticleSystem<'a, 'b> where 'a: 'b {
     fn draw_particle_system(
         &'b mut self, 
         sys: &'a ParticleSystem, 
+        rend: &'a ParticleSystemRenderer
+    );
+
+    fn draw_particle_system_set(
+        &'b mut self, 
+        set: &'a ParticleSystemSet, 
         rend: &'a ParticleSystemRenderer
     );
 }
@@ -77,8 +100,32 @@ impl<'a, 'b> DrawParticleSystem<'a, 'b> for wgpu::RenderPass<'a> where 'a: 'b {
             self.draw(0..rend.mesh.vertex_count, 0..sys.particle_count());
         }
     }
-}
 
+    fn draw_particle_system_set(
+        &'b mut self, 
+        set: &'a ParticleSystemSet,
+        rend: &'a ParticleSystemRenderer
+    ) {
+        for sys in set.systems().iter() {
+            self.set_pipeline(&rend.pipeline);
+
+            for (i, group) in rend.bind_groups.iter().enumerate() {
+                self.set_bind_group(i as u32, group, &[]);
+            }
+
+            self.set_vertex_buffer(0, rend.mesh.vertex_buf.slice(..));
+            self.set_vertex_buffer(1, sys.particle_buf().slice(..));
+
+            if let Some(index_buf) = &rend.mesh.index_buf {
+                self.set_index_buffer(index_buf.slice(..), wgpu::IndexFormat::Uint16);
+                self.draw_indexed(0..rend.mesh.index_count, 0, 0..sys.particle_count());
+            }
+            else {
+                self.draw(0..rend.mesh.vertex_count, 0..sys.particle_count());
+            }
+        }
+    }
+}
 
 /// Describe characteristics of a particle system.
 pub struct ParticleSystemDescriptor<'a> {
@@ -102,7 +149,7 @@ impl<'a> Default for ParticleSystemDescriptor<'a> {
     }
 }
 
-/// Describes the range of possible values of a particle's traits.
+/// Describes the mean and variance of a particle's traits.
 #[derive(Copy, Clone)]
 pub struct ParticleSystemBounds {
     pub area:     [(f32, f32); 3],
@@ -128,10 +175,19 @@ impl Default for ParticleSystemBounds {
 }
 
 
-#[derive(Default)]
 pub struct ParticleSystemRendererDescriptor<'a> {
     pub texture: Option<&'a str>,
     pub mesh_type: ParticleMeshType<'a>,
+    pub max_lights: usize,
+}
+impl<'a> Default for ParticleSystemRendererDescriptor<'a> {
+    fn default() -> Self {
+        Self {
+            texture: None,
+            mesh_type: ParticleMeshType::default(),
+            max_lights: 4,
+        }
+    }
 }
 
 /// Defines model of each particle.

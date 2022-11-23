@@ -1,6 +1,6 @@
 use wgpu::util::DeviceExt;
 
-use crate::error::BrumousResult;
+use crate::error::{BrumousError, BrumousResult};
 use crate::texture::Texture;
 use crate::particle::{
     ParticleVertex, 
@@ -22,7 +22,7 @@ pub struct ParticleSystemRenderer {
     pub mesh:        ParticleMesh,
     pub view_data:   wgpu::Buffer,
     pub lights:      wgpu::Buffer,
-    pub light_count: u64,
+    pub max_lights:  u64,
 }
 impl ParticleSystemRenderer {
     pub fn new(
@@ -52,7 +52,7 @@ impl ParticleSystemRenderer {
         let lights = device.create_buffer_init(
             &wgpu::util::BufferInitDescriptor {
                 label: Some("Lights Buffer"),
-                contents: bytemuck::cast_slice(&[Light::default(); 10]),
+                contents: bytemuck::cast_slice(&vec![Light::default(); desc.max_lights]),
                 usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
             }
         );
@@ -236,28 +236,37 @@ impl ParticleSystemRenderer {
                 mesh,
                 view_data,
                 lights,
-                light_count: 0,
+                max_lights: desc.max_lights as u64,
             }
         )
     }
 
-    pub fn add_light(&mut self, queue: &wgpu::Queue, position: [f32; 4], color: [f32; 4]) {
-        if self.light_count >= 10 {
-            panic!("Maximum light count reached");
+    pub fn add_light(
+        &mut self, 
+        queue: &wgpu::Queue, 
+        position: [f32; 4], 
+        color: [f32; 4], 
+        idx: u64
+    ) -> BrumousResult<()> {
+        if idx >= self.max_lights {
+            return Err(
+                BrumousError::InvalidLightIndex(idx, self.max_lights)
+            );
         }
         queue.write_buffer(
             &self.lights, 
-            self.light_count * Light::size(), 
+            idx * Light::size(), 
             bytemuck::cast_slice(&[Light::new(position, color)])
         );
-        self.light_count += 1;
+        Ok(())
     }
 
     pub fn set_view_proj(&mut self, queue: &wgpu::Queue, vp: [[f32; 4]; 4]) {
         queue.write_buffer(&self.view_data, 0, bytemuck::cast_slice(&[vp]));
     }
 
-    pub fn set_view_pos(&mut self, queue: &wgpu::Queue, vp: [f32; 4]) {
+    pub fn set_view_pos(&mut self, queue: &wgpu::Queue, vp: [f32; 3]) {
+        let vp = [vp[0], vp[1], vp[2], 0.0];
         queue.write_buffer(&self.view_data, 64, bytemuck::cast_slice(&[vp]));
     }
 }

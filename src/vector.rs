@@ -121,6 +121,14 @@ impl Sub for Vec3 {
     }
 }
 
+impl Sub<f32> for Vec3 {
+    type Output = Self;
+
+    fn sub(self, other: f32) -> Self::Output {
+        Self::new(self.x - other, self.y - other, self.z - other)
+    }
+}
+
 impl Mul<f32> for Vec3 {
     type Output = Self;
 
@@ -310,6 +318,14 @@ impl Sub for Vec4 {
     }
 }
 
+impl Sub<f32> for Vec4 {
+    type Output = Self;
+
+    fn sub(self, other: f32) -> Self::Output {
+        Self::new(self.x - other, self.y - other, self.z - other, self.w - other)
+    }
+}
+
 impl Mul<f32> for Vec4 {
     type Output = Self;
 
@@ -347,6 +363,18 @@ impl Div<f32> for Vec4 {
 impl From<Vec4> for [f32; 4] {
     fn from(vec: Vec4) -> [f32; 4] {
         [vec.x, vec.y, vec.z, vec.w]
+    }
+}
+
+impl From<[f32; 4]> for Vec4 {
+    fn from(arr: [f32; 4]) -> Vec4 {
+        Vec4::new(arr[0], arr[1], arr[2], arr[3])
+    }
+}
+
+impl From<(f32, f32, f32, f32)> for Vec4 {
+    fn from(t: (f32, f32, f32, f32)) -> Vec4 {
+        Vec4::new(t.0, t.1, t.2, t.3)
     }
 }
 

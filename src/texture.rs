@@ -1,4 +1,5 @@
 use std::fs;
+use std::num::NonZeroU32;
 
 use crate::error::{BrumousError, BrumousResult};
 
@@ -50,8 +51,8 @@ impl Texture {
                 &rgba,
                 wgpu::ImageDataLayout {
                     offset: 0,
-                    bytes_per_row: std::num::NonZeroU32::new(4 * dimensions.0),
-                    rows_per_image: std::num::NonZeroU32::new(dimensions.1),
+                    bytes_per_row: NonZeroU32::new(4 * dimensions.0),
+                    rows_per_image: NonZeroU32::new(dimensions.1),
                 },
                 size,
             );

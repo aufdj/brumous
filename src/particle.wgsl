@@ -73,11 +73,13 @@ fn vs_main(vertex: VertexInput, particle: ParticleInput) -> VertexOutput {
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     var result = vec3<f32>(0.0, 0.0, 0.0);
 
-    for (var i: i32 = 0; i < i32(arrayLength(&lights)); i++) {
+    let len = i32(arrayLength(&lights));
+
+    for (var i: i32 = 0; i < len; i++) {
         let light_pos = lights[i].pos.xyz;
         let light_color = lights[i].color.xyz;
 
-        let ambient_strength = 0.2;
+        let ambient_strength = 0.4;
         let ambient_color = light_color * ambient_strength;
 
         let light_dir = normalize(light_pos - in.world_pos);
@@ -90,6 +92,9 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
         let specular_color = specular_strength * light_color;
 
         result += (ambient_color + diffuse_color + specular_color) * in.color.xyz;
+    }
+    if result.x == 0.0 && result.y == 0.0 && result.z == 0.0 {
+        return in.color;
     }
     return vec4<f32>(result, in.color.a);
 }

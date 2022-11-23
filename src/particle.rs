@@ -7,7 +7,7 @@ use crate::vector::{Vec3, Vec4};
 use crate::matrix::{Mat3x3, Mat4x4};
 use crate::quaternion::Quaternion;
 use crate::random::Randf32;
-use crate::particle_system::ParticleAttractor;
+use crate::particle_system::{ParticleAnimation, ParticleAttractor};
 
 const G: f32 = 0.00000000006674;
 
@@ -35,6 +35,7 @@ pub struct Particle {
     pub mass:     f32,
     pub color:    Vec4,
     pub queued:   bool,
+    pub cam_dist: f32,
 }
 impl Particle {
     pub fn new(rand: &mut Randf32, bounds: &ParticleSystemBounds, pos: &Vec3) -> Self {
@@ -47,9 +48,10 @@ impl Particle {
             life:     rand.f32_in(&bounds.life),
             mass:     rand.f32_in(&bounds.mass),
             queued:   false,
+            cam_dist: 0.0,
         }
     }
-    pub fn update(&mut self, delta: f32, atts: &[ParticleAttractor], forces: &[Vec3]) {
+    pub fn update_pos(&mut self, delta: f32, atts: &[ParticleAttractor], forces: &[Vec3]) {
         for att in atts.iter() {
             let pa = att.pos - self.position;
             let dist = pa.len();
@@ -64,6 +66,18 @@ impl Particle {
 
         self.position += self.velocity * delta;
     }
+
+    pub fn animate(&mut self, delta: f32, animation: &ParticleAnimation) {
+        match animation {
+            ParticleAnimation::Color(anim) => {
+                self.color = anim(self.color, delta);
+            }
+            ParticleAnimation::Scale(anim) => {
+                self.scale = anim(self.scale, delta);
+            }
+        }
+    }
+
     pub fn instance(&self) -> ParticleInstance {
         ParticleInstance {
             model: (
@@ -87,9 +101,11 @@ impl Default for Particle {
             mass:     0.0,
             color:    Vec4::zero(),
             queued:   true,
+            cam_dist: 0.0,
         }
     }
 }
+
 
 #[repr(C)]
 #[derive(Copy, Clone, Default, bytemuck::Pod, bytemuck::Zeroable)]
