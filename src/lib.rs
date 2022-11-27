@@ -179,6 +179,7 @@ pub struct ParticleSystemRendererDescriptor<'a> {
     pub texture: Option<&'a str>,
     pub mesh_type: ParticleMeshType<'a>,
     pub max_lights: usize,
+    pub depth_texture: Option<DepthTextureDescriptor>,
 }
 impl<'a> Default for ParticleSystemRendererDescriptor<'a> {
     fn default() -> Self {
@@ -186,6 +187,7 @@ impl<'a> Default for ParticleSystemRendererDescriptor<'a> {
             texture: None,
             mesh_type: ParticleMeshType::default(),
             max_lights: 4,
+            depth_texture: None,
         }
     }
 }
@@ -197,4 +199,8 @@ pub enum ParticleMeshType<'a> {
     Cube,
     Point,
     Custom(&'a str),
+}
+
+pub struct DepthTextureDescriptor {
+    pub texture_format: wgpu::TextureFormat,
 }

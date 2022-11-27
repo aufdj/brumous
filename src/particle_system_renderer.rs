@@ -12,6 +12,7 @@ use crate::ParticleSystemRendererDescriptor;
 use crate::matrix::Mat4x4;
 use crate::vector::Vec4;
 use crate::ParticleMeshType;
+use crate::DepthTextureDescriptor;
 
 const SHADER: &str = include_str!("particle.wgsl");
 
@@ -213,13 +214,14 @@ impl ParticleSystemRenderer {
                     unclipped_depth: false,
                     conservative: false,
                 },
-                depth_stencil: Some(wgpu::DepthStencilState {
-                    format: Texture::DEPTH_FORMAT,
-                    depth_write_enabled: true,
-                    depth_compare: wgpu::CompareFunction::Less,
-                    stencil: wgpu::StencilState::default(),
-                    bias: wgpu::DepthBiasState::default(),
-                }),
+                depth_stencil: from_depth_texture_desc(&desc.depth_texture),
+                // Some(wgpu::DepthStencilState {
+                //     format: Texture::DEPTH_FORMAT,
+                //     depth_write_enabled: true,
+                //     depth_compare: wgpu::CompareFunction::Less,
+                //     stencil: wgpu::StencilState::default(),
+                //     bias: wgpu::DepthBiasState::default(),
+                // }),
                 multisample: wgpu::MultisampleState {
                     count: 1,
                     mask: !0,
@@ -318,4 +320,20 @@ impl From<&ParticleMeshType<'_>> for wgpu::PrimitiveTopology {
             }
         }
     }
+}
+
+
+fn from_depth_texture_desc(depth_texture: &Option<DepthTextureDescriptor>) -> Option<wgpu::DepthStencilState> {
+    if let Some(desc) = depth_texture {
+        Some(wgpu::DepthStencilState {
+            format: desc.texture_format,
+            depth_write_enabled: true,
+            depth_compare: wgpu::CompareFunction::Less,
+            stencil: wgpu::StencilState::default(),
+            bias: wgpu::DepthBiasState::default(),
+        })
+    }
+    else {
+        None
+    }   
 }

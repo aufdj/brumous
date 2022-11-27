@@ -31,6 +31,8 @@ pub struct ParticleSystem {
     forces:     Vec<Vec3>,
     rand:       Randf32,
     anims:      Vec<ParticleAnimation>,
+    living:     Vec<Particle>,
+    dummy:      Vec<ParticleInstance>,
 }
 impl ParticleSystem {
     pub fn new(
@@ -63,6 +65,8 @@ impl ParticleSystem {
                 forces:     Vec::new(),
                 rand:       Randf32::new(),
                 anims:      Vec::new(),
+                living:     Vec::with_capacity(sys_desc.max),
+                dummy:      vec![ParticleInstance::default(); sys_desc.max],
             }
         )
     }
@@ -93,31 +97,30 @@ impl ParticleSystem {
             if particle.life > 0.0 {
                 particle.update_pos(delta, &self.attractors, &self.forces);
                 particle.cam_dist = (particle.position - view_pos).len();
-
-                for anim in self.anims.iter() {
-                    particle.animate(delta, anim);
-                }
-                
-                queue.write_buffer(
-                    &self.buf,
-                    index as u64 * ParticleInstance::size(),
-                    bytemuck::cast_slice(&[particle.instance()])
-                );
+                self.living.push(*particle);
             }
             else {
                 // Add dead particle to respawn queue if not already queued.
                 if !particle.queued {
                     self.spawnqueue.push_back(index);
                     particle.queued = true;
-
-                    queue.write_buffer(
-                        &self.buf,
-                        index as u64 * ParticleInstance::size(),
-                        bytemuck::cast_slice(&[ParticleInstance::default()])
-                    );
                 }
             }
         }
+
+        self.living.sort_by(|p1, p2| p2.cam_dist.partial_cmp(&p1.cam_dist).unwrap());
+        queue.write_buffer(
+            &self.buf,
+            0,
+            bytemuck::cast_slice(&self.living.instance())
+        );
+        let rem = &self.dummy[self.living.len()..self.particles.len()];
+        queue.write_buffer(
+            &self.buf,
+            self.living.len() as u64 * ParticleInstance::size(),
+            bytemuck::cast_slice(&rem)
+        );
+        self.living.clear();
     }
 
     /// Return number of particles in particle system.

@@ -127,3 +127,14 @@ fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
 //     }
 //     return vec4<f32>(result, obj_col.a);
 // }
+
+// @vertex
+// fn vs_main() {}
+
+// let NUM_STEPS: i32 = 8;
+
+
+// @fragment
+// fn fs_main() -> @location(0) vec4<f32> {
+//     return vec4<f32>(0.0, 0.0, 0.0, 0.0);
+// }
